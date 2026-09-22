@@ -1,0 +1,14 @@
+# Dependências do ambiente do worker (Implementação §18.2).
+#
+# A lista é curta de propósito: tudo o mais que `tools/` importa é biblioteca
+# padrão. Cada dependência nova aqui é uma roda a mais para baixar, verificar
+# por hash e manter alinhada entre máquinas — e uma superfície a mais num
+# componente que a v2.6 promoveu a componente de SEGURANÇA (ORDER §35).
+#
+# Versões fixadas: o pacote é artefato imutável (§18.4). "Mais recente" num
+# pacote que se pretende reproduzível é contradição.
+pyyaml==6.0.2
+jsonschema==4.23.0
+
+# Só para rodar a suíte de aceitação na máquina de destino; o worker não usa.
+pytest==8.3.4

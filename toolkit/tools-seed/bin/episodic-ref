@@ -1,0 +1,80 @@
+#!/usr/bin/env python3
+"""
+Adaptador episódico de REFERÊNCIA (CHAOS §4.2).
+
+NÃO é o componente de produção — esse é o `ai-memory` (Implementação §17). Este
+implementa o contrato mínimo da camada episódica em ~60 linhas, e existe por uma
+razão: permitir verificar o NOSSO lado do contrato — que registro episódico não é
+fonte, que só `chaos promote` o traz para dentro, que a ausência da camada não
+quebra nada — sem depender de um binário de terceiro estar instalado.
+
+Um contrato de adaptador que só pode ser testado com o fornecedor presente é um
+contrato que ninguém testa.
+"""
+import json
+import os
+import pathlib
+import sys
+import hashlib
+import datetime
+
+
+def store() -> pathlib.Path:
+    raiz = pathlib.Path(os.environ.get("EPISODIC_STORE", "")) or \
+        pathlib.Path.cwd().parent / "episodic-store"
+    raiz.mkdir(parents=True, exist_ok=True)
+    return raiz
+
+
+def registros() -> list[dict]:
+    p = store() / "observations.jsonl"
+    if not p.exists():
+        return []
+    return [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()]
+
+
+def main(argv: list[str]) -> int:
+    if not argv:
+        print("uso: episodic-ref init|observe|search|show", file=sys.stderr)
+        return 2
+    cmd, resto = argv[0], argv[1:]
+
+    if cmd == "init":
+        if "--store" in resto:
+            os.environ["EPISODIC_STORE"] = resto[resto.index("--store") + 1]
+        store()
+        print(json.dumps({"initialized": str(store())}))
+        return 0
+
+    if cmd == "observe":
+        texto = resto[resto.index("--text") + 1] if "--text" in resto else " ".join(resto)
+        ref = "episodic:" + hashlib.sha256(
+            (texto + datetime.datetime.now().isoformat()).encode()).hexdigest()[:12]
+        linha = {"ref": ref, "text": texto,
+                 "ts": datetime.datetime.now(datetime.timezone.utc).isoformat()}
+        with (store() / "observations.jsonl").open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(linha, ensure_ascii=False) + "\n")
+        print(json.dumps(linha, ensure_ascii=False))
+        return 0
+
+    if cmd == "search":
+        consulta = next((a for a in resto if not a.startswith("--")), "")
+        achados = [r for r in registros()
+                   if consulta.lower() in r["text"].lower()] if consulta else registros()
+        print(json.dumps(achados, ensure_ascii=False))
+        return 0
+
+    if cmd == "show":
+        ref = resto[0] if resto else ""
+        for r in registros():
+            if r["ref"] == ref:
+                print(json.dumps(r, ensure_ascii=False))
+                return 0
+        return 1
+
+    print(json.dumps({"error": f"comando desconhecido: {cmd}"}), file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

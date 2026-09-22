@@ -1,0 +1,32 @@
+# Bytecode e caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Segredos — nenhum deve existir aqui, e a lista é a segunda barreira (§15)
+.env
+.env.*
+*.pem
+*.key
+id_rsa
+id_ed25519
+*_rsa
+*_ed25519
+
+# Artefatos de montagem do pacote portátil (§18): binários baixados por
+# `montar-pacote`, que nunca entram no controle de versão.
+toolkit/pacote/
+toolkit/git/
+toolkit/uv/
+toolkit/python/
+toolkit/venv/
+toolkit/wheels/
+toolkit/episodic/
+toolkit/ollama/
+toolkit/models/
+chaos-toolkit-*.zip
+
+# Snapshot de trabalho da sessão — cópias antigas e tarballs já representados
+# pelas pastas versionadas. Fica fora para não haver duas verdades.
+Claude outputs/

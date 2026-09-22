@@ -1,0 +1,32 @@
+COSMOS — pacote portátil
+=========================
+
+COSMOS é o sistema: a camada CHAOS (onde o conhecimento mora),
+a camada ORDER (o que executa) e o binding que realiza as duas
+nesta máquina. Este pacote traz as ferramentas; o Git traz o
+conteúdo.
+
+Windows:  dê um duplo clique em  INICIAR.cmd
+Linux:    abra um terminal aqui e rode  ./iniciar.sh
+
+O assistente pergunta o que você quer fazer:
+
+  [1] Conectar a um repositório Git que já tem o seu conteúdo
+  [2] Criar um repositório novo do zero
+  [3] Só preparar o ambiente, sem repositório
+
+O que este pacote NÃO faz, por decisão de desenho:
+
+  - não instala nada fora desta pasta;
+  - não guarda nenhuma credencial sua;
+  - não traz chave de assinatura alguma: elas nascem
+    na sua máquina, no Onboarding, e a privada nunca
+    entra em repositório nenhum;
+  - não se atualiza sozinho;
+  - não "conserta" divergência de versão.
+
+Duas coisas continuam sendo instalação sua, e o assistente
+imprime os comandos prontos no fim: o Claude Code (uma linha,
+sem administrador) e o registro do worker no logon.
+
+Detalhes: Implementação §18; tutorial, Apêndice A.

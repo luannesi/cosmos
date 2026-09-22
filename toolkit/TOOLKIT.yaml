@@ -1,0 +1,37 @@
+# TOOLKIT.yaml — manifesto do pacote portátil do COSMOS (Implementação §18.4)
+#
+# `tag` é comparada por `chaos health` (CHAOS §21.1) contra
+# metadata/tooling.yaml.vendored_tag do repositório. Divergência não é erro
+# fatal: rebaixa automações a `propose` (ORDER §31) até o alinhamento, que é
+# humano, por `chaos tooling update <tag>`.
+#
+# Chaves sha256_<caminho com __ no lugar de />: conferidas no bootstrap.
+# Ausência de uma chave significa "não verificar", nunca "verificado e ok".
+
+tag: "v0.1.0"
+built_at: "2026-09-20"
+platform: "windows-x64"        # windows-x64 | linux-x64 | darwin-arm64
+
+git: "2.55.0.5"
+uv: "0.9.x"
+python: "3.13.15"
+episodic: ""                   # versão do ai-memory; vazio = não incluído
+ollama: ""                     # vazio = não incluído
+
+# Credenciais NUNCA entram no pacote (§18.3): sem chaves de deploy, tokens de
+# Git, token da camada episódica, chaves de provedor ou executors.yaml
+# preenchido. As identidades por executor nascem no Onboarding, por máquina.
+#
+# v1.4 — e NENHUMA CHAVE DE ASSINATURA, nem privada nem allowed_signers
+# preenchido. Depois do spike de 21/09/2026, a garantia A4 repousa sobre
+# assinatura por chave que existe numa máquina só (CHAOS §17.6). Uma chave
+# que viajasse aqui estaria em toda máquina que baixou o ZIP, e a marca
+# deixaria de significar "esta pessoa, nesta máquina" para significar "quem
+# quer que tenha descompactado" — pior do que não ter assinatura, porque teria
+# a aparência de garantia. O allowed_signers vai como modelo vazio; a primeira
+# linha nasce no `chaos init`.
+
+sha256_git__cmd__git.exe: ""
+sha256_uv__uv.exe: ""
+sha256_episodic__ai-memory.exe: ""
+sha256_ollama__ollama.exe: ""

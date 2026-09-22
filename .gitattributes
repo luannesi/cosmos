@@ -1,0 +1,15 @@
+# Normalização obrigatória de finais de linha (CHAOS §17.1).
+# Sem isto, um clone no Windows converte para CRLF e quebra, em silêncio,
+# o merge=union do ledger, o hash do AGENTS.md e a reconstrução de views.
+* text=auto eol=lf
+*.md text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.py text eol=lf
+*.sh text eol=lf
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.png binary
+*.pdf binary
+*.zip binary
+*.tar.gz binary

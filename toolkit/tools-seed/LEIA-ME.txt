@@ -1,0 +1,11 @@
+tools-seed/ — semente das ferramentas
+
+Cópia de tools/ na tag declarada em TOOLKIT.yaml, usada UMA vez, por
+`chaos init`, para criar um repositório do zero (opção 2 do assistente).
+
+Existe porque a CLI `chaos` é vendorizada dentro de um repositório — logo
+não existe antes do primeiro. Depois do `init`, quem manda é
+metadata/tooling.yaml do repositório, e `chaos health` compara as duas tags.
+
+Preencha esta pasta ao montar o pacote, copiando tools/ de um repositório
+já construído (Fase 0 concluída).
