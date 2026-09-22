@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -46,6 +47,28 @@ class Result:
         return any(n.lower() in blob for n in needles)
 
 
+def _invocacao(binario: str) -> list[str]:
+    """
+    Como invocar a CLI neste sistema operacional.
+
+    `bin/chaos` é um script Python com shebang. O POSIX honra shebang; o
+    Windows não. Apontar a suíte para o arquivo sem extensão funciona no Linux
+    e falha no Windows com um erro de formato que não sugere a causa — e o
+    Windows é justamente a plataforma-alvo deste sistema.
+
+    Duas saídas, e as duas valem: existe um invólucro `.cmd` ao lado para o uso
+    interativo, e aqui a suíte resolve sozinha, para não depender de o usuário
+    ter apontado o caminho certo.
+    """
+    p = Path(binario)
+    if os.name == "nt" and p.suffix == "":
+        irmao = p.with_suffix(".cmd")
+        if irmao.exists():
+            return [str(irmao)]
+        return [sys.executable, str(p)]
+    return [binario]
+
+
 class CLI:
     """Invocador de `chaos` ou `order` dentro de um repositório, sob uma identidade."""
 
@@ -65,7 +88,7 @@ class CLI:
         if identity:
             env.update(identity.env())
         proc = subprocess.run(
-            [self.binary, *args], cwd=self.cwd, env=env,
+            [*_invocacao(self.binary), *args], cwd=self.cwd, env=env,
             capture_output=True, text=True, timeout=120,
         )
         res = Result(proc.returncode, proc.stdout, proc.stderr)

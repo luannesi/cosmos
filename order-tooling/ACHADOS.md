@@ -414,3 +414,30 @@ uma chave no pacote estaria em toda máquina que o baixou — e a marca deixaria
 de significar "esta pessoa, nesta máquina" para significar "quem quer que tenha
 descompactado". Pior do que não ter assinatura, porque teria a aparência de
 garantia.
+
+---
+
+## 26. As CLIs não executavam na plataforma-alvo
+
+`bin/chaos` e `bin/order` são scripts Python com shebang. O POSIX honra
+shebang; **o Windows não**. Apontar a suíte para o arquivo sem extensão
+funciona no Linux e falha no Windows com um erro de formato que não sugere a
+causa — e o Windows é a plataforma para a qual este sistema foi desenhado
+desde a décima segunda rodada, quando descobrimos que a tabela de negação do
+guard era inteiramente POSIX.
+
+O defeito sobreviveu a três levas de implementação e a 134 testes de aceitação
+porque **todos rodaram em Linux**. Nenhum teste podia encontrá-lo: eles
+exercitam o contrato, e o contrato estava certo — o que estava errado era
+poder invocá-lo.
+
+Duas correções, porque servem a usuários diferentes: invólucros `.cmd` ao lado
+de cada script, para o uso interativo e para o `tools-seed` do pacote portátil;
+e `_invocacao()` no harness da suíte, que no Windows prefere o `.cmd` e, na
+falta dele, chama o interpretador explicitamente — assim a suíte não depende de
+o usuário ter apontado o caminho certo.
+
+Achado ao **escrever o runbook de instalação**, não ao rodar nada. Redigir o
+comando que outra pessoa vai digitar obriga a imaginar a máquina dela, e foi
+isso que expôs a diferença. Vale como método: escrever a instrução é uma forma
+barata de testar a hipótese de que o sistema é utilizável.

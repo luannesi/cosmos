@@ -59,6 +59,11 @@ ela mesma cria e descarta.
 
 ### Trilha B — usar o sistema de verdade
 
+**Runbook completo: `EXECUTAR_COSMOS.md`** — de nada a um repositório de
+conhecimento governado e funcionando, com comandos, verificações a cada passo
+e os problemas que realmente acontecem. É o documento para executar; o resto
+desta seção é o resumo.
+
 Aqui a honestidade importa mais que a receita: **a Fase 0 ainda não foi
 percorrida por ninguém.** O código passa nos testes, as especificações estão
 fechadas, mas a primeira instalação numa máquina real ainda não aconteceu.
