@@ -136,6 +136,17 @@ na interface de linha de comando sem contrato nenhum.
 
 ---
 
+## Licença
+
+MIT. Você pode usar, modificar, redistribuir e construir em cima disto,
+inclusive comercialmente, mantendo o aviso de copyright e a licença. Sem
+garantia.
+
+Um detalhe que vale para quem for continuar o trabalho: a licença cobre o
+código e os textos deste repositório, não as plataformas que o binding de
+referência usa. Trocar de binding é previsto pelo desenho (Perfil B), e nada
+aqui prende o conjunto a um fornecedor.
+
 ## Convenções
 
 As **especificações são normativas** e usam MUST / MUST NOT / SHOULD no sentido
