@@ -48,5 +48,5 @@ pytest --chaos-bin=../order-tooling/bin/chaos \
 
 ## Dependências
 
-Python 3.11+, `PyYAML`, `jsonschema` (opcional: sem ele o validador cai num
+Python 3.10+ (verificado em 3.10; a suíte inteira passa), `PyYAML`, `jsonschema` (opcional: sem ele o validador cai num
 verificador mínimo de tipos e obrigatórios, e diz que caiu).

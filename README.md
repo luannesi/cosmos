@@ -25,6 +25,80 @@ nome válido quando a infraestrutura mudar.
 
 ---
 
+## Do zero, tendo só a URL
+
+**Antes de qualquer comando, a distinção que decide tudo o mais:** clonar este
+repositório te dá o **toolchain** — as especificações, a implementação de
+referência, a suíte de testes e o pacote portátil. Ele **não** te dá um segundo
+cérebro funcionando.
+
+O conhecimento mora num repositório **separado e seu**, criado por `chaos init`
+e privado por natureza (ele guarda o que você sabe, decide e faz). Um
+repositório por classe de privacidade — pessoal, trabalho, cliente —, porque o
+isolamento por classe é a única fronteira de confidencialidade do sistema.
+
+Este repositório é a fábrica. O outro é o produto.
+
+### Trilha A — entender, avaliar ou contribuir (15 minutos)
+
+```bash
+git clone https://github.com/luannesi/cosmos.git
+cd cosmos
+pip install pyyaml jsonschema pytest
+python -m pytest at-suite -q \
+  --chaos-bin=order-tooling/bin/chaos \
+  --order-bin=order-tooling/bin/order
+```
+
+Python 3.10 ou mais novo. Esperado: **134 testes**, com 4 pulados por falta do
+componente opcional da camada episódica. Se passar, a implementação de
+referência está íntegra na sua máquina e você pode ler, medir e mexer.
+
+Nada disso toca a sua vida: a suíte trabalha em repositórios temporários que
+ela mesma cria e descarta.
+
+### Trilha B — usar o sistema de verdade
+
+Aqui a honestidade importa mais que a receita: **a Fase 0 ainda não foi
+percorrida por ninguém.** O código passa nos testes, as especificações estão
+fechadas, mas a primeira instalação numa máquina real ainda não aconteceu.
+Quem seguir esta trilha agora é o primeiro, e vai encontrar coisas — é assim
+que este projeto vem funcionando, e os `ACHADOS.md` são o registro disso.
+
+O caminho completo está em `TUTORIAL_Instalacao_e_Configuracao.md`, que foi
+escrito para ser seguido sem conhecer as especificações. Em resumo:
+
+1. **Software base** (tutorial §1) — Python, Git, Claude Code. Dois passos que
+   parecem burocráticos e não são: verificar a autenticação Git com um clone de
+   repositório privado que conclui de verdade, e gerar as chaves de assinatura
+   (§1.2.1 e §1.2.2). Numa máquina nova, o Git não alcança o GitHub por padrão,
+   e a assinatura é a raiz de confiança de todo o resto.
+2. **Seu repositório de conhecimento** (tutorial §2) — crie um repositório
+   privado vazio no GitHub, uma pasta local, e rode `chaos init` a partir do
+   `bin/` deste clone. Ele vendoriza as ferramentas dentro do seu repositório:
+   a partir daí o seu repositório é autossuficiente e este clone deixa de ser
+   necessário.
+3. **Onboarding** — `chaos onboarding run`: 28 perguntas, nenhuma com resposta
+   padrão silenciosa. É o que transforma o layout genérico no *seu* sistema.
+4. **Registrar as chaves** e fazer o primeiro commit assinado. É o commit mais
+   importante do repositório: define quem conta como humano, e é o único em
+   toda a vida dele que não precisa de assinatura prévia.
+5. **Fase 0** (binding §13) — os critérios de aceitação rodando contra o seu
+   repositório real.
+
+### Segunda máquina em diante
+
+Não repita o processo à mão. `toolkit/montar-pacote.ps1` (ou `.sh`) monta um
+pacote portátil com ferramentas, Python e ambiente virtual, e a outra máquina
+só descompacta e conecta ao Git. O estado viaja pelo Git; as ferramentas, pelo
+pacote. Detalhes no Apêndice A do tutorial.
+
+Cada máquina tem identidade de executor e chave de assinatura próprias — e a
+chave humana da segunda máquina é a redundância que impede que perder um
+computador signifique perder a capacidade de aprovar.
+
+---
+
 ## Por onde começar
 
 **Se você quer entender o desenho:** leia o `CHAOS_Especificacao_v2.6.md` do §1
