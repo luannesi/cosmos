@@ -515,3 +515,32 @@ lista com vírgula vira lista de verdade antes de voltar, igual às outras
 duas rotas. Sem isso, qualquer Onboarding real ia embutir esse defeito
 silenciosamente cedo ou tarde — é o caminho que a maioria escolhe (aceitar
 o default é o comum; digitar de novo o que já está na tela, não).
+
+---
+
+## 29. O runbook mandava invocar um módulo que não existe pro worker no logon
+
+Parte 6 do `TUTORIAL_Instalacao_e_Configuracao.md` instruía o Agendador de
+Tarefas do Windows a rodar `pythonw.exe -m order.worker`. Dois problemas,
+descobertos só ao configurar o Agendador de verdade (achado da mesma família
+do 26 — só aparece fora do Linux, e só ao tentar executar, não ao ler):
+
+Primeiro, `order.worker` não é o pacote: o vendoring põe as ferramentas em
+`tools/order/`, então o módulo real é `tools.order.worker` — `-m
+order.worker` falha com `ModuleNotFoundError` antes de qualquer outra coisa.
+
+Segundo — e mais sério — mesmo corrigindo pra `-m tools.order.worker`, nada
+acontece: `tools/order/worker.py` define `main()` mas não tem `if __name__ ==
+"__main__"`. Rodar o módulo importa e sai, código de saída `0`. No Agendador
+de Tarefas isso é o pior tipo de defeito: "Último Resultado da Execução"
+mostra sucesso, e não existe absolutamente nenhum sinal de que o worker nunca
+rodou — quem configurou confia no Agendador e seguiria a vida sem worker
+algum.
+
+Não era falta de entry point no código — já existia o certo: `bin/order-worker`
+(e `bin/order-worker.cmd`), que importa `main` de `tools.order.worker` e
+chama, no mesmo padrão de `bin/chaos`/`bin/order`. O defeito era só o
+runbook apontar pro caminho errado. Corrigido: Programa continua
+`pythonw.exe`, Argumentos passa a ser `bin\order-worker` (o script com
+shebang, sem `-m`, sem extensão — `pythonw.exe` executa Python direto, sem
+passar pelo `.cmd`).

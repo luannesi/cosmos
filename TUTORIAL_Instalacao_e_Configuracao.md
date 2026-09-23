@@ -518,9 +518,15 @@ Quando o worker estiver escrito, você o registra para iniciar no logon.
 3. Aba **Geral**: nome `CHAOS order-worker`; marque "Executar estando o usuário conectado ou não" **apenas se** quiser que rode sem você logado — caso contrário deixe o padrão
 4. Aba **Disparadores** → Novo → "Ao fazer logon"
 5. Aba **Ações** → Novo:
-   - Programa: `pythonw.exe` (o caminho completo; `pythonw` em vez de `python` evita abrir uma janela de console)
-   - Argumentos: `-m order.worker`
-   - Iniciar em: a pasta do repositório
+   - Programa: `pythonw.exe` (o caminho completo — descubra com `where pythonw`; `pythonw` em vez de `python` evita abrir uma janela de console)
+   - Argumentos: `bin\order-worker` (o script COM shebang, sem extensão — `pythonw.exe` executa
+     Python diretamente e não passa pelo `.cmd`; NÃO use `-m order.worker` — esse módulo não
+     existe, o pacote vendorizado é `tools.order.worker`, e mesmo corrigindo o caminho ainda
+     falharia: o módulo não tem `if __name__ == "__main__"`, roda e sai sem fazer nada,
+     "sucesso" sem o worker ter executado. O invólucro certo, que já existe e já resolve os
+     dois problemas, é `bin\order-worker` — mesmo padrão de `bin\chaos`/`bin\order`)
+   - Iniciar em: a pasta do repositório (`achar_repo()` usa o diretório corrente pra localizar
+     o repositório — sem isto o worker não acha nada pra fazer)
 6. Aba **Condições**: desmarque "Iniciar a tarefa somente se o computador estiver ligado à rede elétrica" se usar notebook
 
 ### Linux — systemd de usuário
