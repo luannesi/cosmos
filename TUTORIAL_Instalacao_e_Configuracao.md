@@ -585,13 +585,12 @@ Marque conforme avançar.
 - [x] Consequência aplicada: raiz de confiança em assinatura (CHAOS §17.6)
 - [ ] Refazer só se mudar de organização ou de runtime
 
-**Parte 3.5 — Camada episódica**
-- [ ] Pergunta 1 — a captura fica contida? ______
-- [ ] Pergunta 2 — roda no arranjo real, sem WSL2 obrigatório? ______
-- [ ] Pergunta 3 — a busca encontra entidades no formato CHAOS? ______
-- [ ] Decisão comunicada ao Claude (adotar / desativar)
-- [ ] Se adotar: ai-memory instalado, `/health` responde, hooks aplicados
-- [ ] Se adotar: versão instalada anotada: ______
+**Parte 3.5 — Camada episódica** ✅ executado em 23/09/2026 — detalhe completo em `spike-episodica/RESULTADO.md`
+- [x] Pergunta 1 — a captura fica contida? **provável sim** (não totalmente verificado — falta confirmar o marcador `.ai-memory.toml`)
+- [x] Pergunta 2 — roda no arranjo real, sem WSL2 obrigatório? **sim** (binário nativo Windows, sem Docker/WSL2)
+- [x] Pergunta 3 — a busca encontra entidades no formato CHAOS? **não** — o hook do Claude Code captura o prompt literal e um marcador genérico de tool, nunca o conteúdo/diff da ferramenta; corpo de arquivo criado/editado nunca é indexado, independente da qualidade da busca (confirmada funcional em teste isolado)
+- [x] Decisão comunicada ao Claude: **desativar como índice de busca sobre CHAOS** — o CHAOS já tem índice BM25 próprio (Parte 5) pra isso; ai-memory versão instalada: `2.4.0`
+- [ ] Achado colateral a investigar antes de contar com continuidade automática: sessão não finaliza sozinha nesse arranjo (`SessionEnd` não dispara `finalize-session`); decisão sobre manter ai-memory só pra handoff, sem busca sobre CHAOS, ainda pendente
 
 **Parte 4 — Decisão**
 - [ ] Respondido: há material que não pode sair da máquina?
