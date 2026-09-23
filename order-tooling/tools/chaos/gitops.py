@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 def git(repo: Path, *args: str, check: bool = False) -> subprocess.CompletedProcess:
-    p = subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True)
+    p = subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if check and p.returncode != 0:
         raise RuntimeError(f"git {' '.join(args)}: {p.stderr.strip()}")
     return p

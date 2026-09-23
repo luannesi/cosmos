@@ -54,7 +54,7 @@ def consultar(repo: Path, consulta: str, limite: int = 5) -> list[dict]:
         return []
     try:
         p = subprocess.run([binario(), "search", consulta or "", "--format", "json"],
-                           cwd=repo, capture_output=True, text=True, timeout=20)
+                           cwd=repo, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=20)
         if p.returncode != 0:
             return []
         dados = json.loads(p.stdout or "[]")
@@ -71,7 +71,7 @@ def obter(repo: Path, ref: str) -> dict | None:
         return None
     try:
         p = subprocess.run([binario(), "show", ref, "--format", "json"],
-                           cwd=repo, capture_output=True, text=True, timeout=20)
+                           cwd=repo, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=20)
         if p.returncode != 0:
             return None
         return json.loads(p.stdout)

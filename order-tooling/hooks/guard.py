@@ -76,7 +76,7 @@ def main() -> None:
         decidir(False, "ferramenta fora do escopo do guard")
 
     p = subprocess.run([sys.executable, str(order), "guard", *argv],
-                       cwd=cwd, capture_output=True, text=True, timeout=30)
+                       cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
     if p.returncode != 0:
         decidir(True, (p.stderr or p.stdout).strip().splitlines()[-1]
                 if (p.stderr or p.stdout).strip() else "negado pelo guard")

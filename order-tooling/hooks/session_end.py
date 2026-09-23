@@ -30,7 +30,7 @@ def main() -> None:
     cwd = pathlib.Path(evento.get("cwd") or ".")
     raiz = pathlib.Path(__file__).resolve().parents[2]
     subprocess.run([sys.executable, str(_cli(cwd, "order")), "session", "close"],
-                   cwd=cwd, capture_output=True, text=True, timeout=60)
+                   cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
     sys.exit(0)
 
 

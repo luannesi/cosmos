@@ -77,7 +77,7 @@ class Identidade:
 
     def _git_config(self, chave: str) -> str:
         p = subprocess.run(["git", "config", "--get", chave], cwd=self.repo,
-                           capture_output=True, text=True)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace")
         return p.stdout.strip()
 
     def _registry(self) -> list[dict]:

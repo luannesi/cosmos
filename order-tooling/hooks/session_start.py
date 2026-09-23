@@ -44,7 +44,7 @@ def main() -> None:
     try:
         p = subprocess.run([sys.executable, str(chaos), "context",
                             "--surface", "cloud:claude-code", "--format", "json"],
-                           cwd=cwd, capture_output=True, text=True, timeout=60)
+                           cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
         if p.returncode == 0:
             ctx = json.loads(p.stdout)
             partes.append("## Estado das áreas\n" +
@@ -63,7 +63,7 @@ def main() -> None:
     # `order session open` cria SES só quando houver RUN ou HND (CHAOS §7.4):
     # sessão sem trabalho não vira arquivo, para não poluir o histórico.
     subprocess.run([sys.executable, str(_cli(cwd, "order")), "session", "open"],
-                   cwd=cwd, capture_output=True, text=True)
+                   cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace")
 
     print(json.dumps({"additionalContext": "\n\n".join(partes)}, ensure_ascii=False))
 

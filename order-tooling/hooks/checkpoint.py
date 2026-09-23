@@ -37,7 +37,7 @@ def main() -> None:
     order = _cli(cwd, "order")
 
     p = subprocess.run([sys.executable, str(order), "run", "list", "--format", "json"],
-                       cwd=cwd, capture_output=True, text=True, timeout=30)
+                       cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
     if p.returncode != 0:
         sys.exit(0)
     try:
@@ -51,7 +51,7 @@ def main() -> None:
                         "--step", "fim de turno",
                         "--last-action", "turno encerrado pelo hook Stop",
                         "--resume-hint", "retomar do último artefato comitado"],
-                       cwd=cwd, capture_output=True, text=True)
+                       cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     sys.exit(0)
 
 

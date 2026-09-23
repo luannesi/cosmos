@@ -190,7 +190,7 @@ def verificar_commit(repo: Path, ref: str = "HEAD") -> Veredito:
         ["git", "-c", "gpg.format=ssh",
          "-c", f"gpg.ssh.allowedSignersFile={caminho}",
          "log", "-1", "--date=short", "--format=%G?%x1f%GS%x1f%ad", ref],
-        cwd=repo, capture_output=True, text=True)
+        cwd=repo, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if p.returncode != 0:
         return Veredito(False, motivo=f"git não leu `{ref}`: {p.stderr.strip()}")
     bruto = p.stdout.strip("\n")
@@ -262,7 +262,7 @@ def exigir_humana(repo: Path, ref: str = "HEAD", acao: str = "esta ação") -> V
 
 def achar_chaves_privadas(repo: Path) -> list[str]:
     """Um repositório que contenha a chave que o autoriza não autoriza nada."""
-    p = subprocess.run(["git", "ls-files"], cwd=repo, capture_output=True, text=True)
+    p = subprocess.run(["git", "ls-files"], cwd=repo, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if p.returncode != 0:
         return []
     achados = []
@@ -303,12 +303,12 @@ def commit_da_primeira_chave_humana(repo: Path) -> str:
     """
     p = subprocess.run(["git", "log", "--reverse", "--format=%H", "--",
                         REL_ALLOWED_SIGNERS],
-                       cwd=repo, capture_output=True, text=True)
+                       cwd=repo, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if p.returncode != 0:
         return ""
     for rev in p.stdout.split():
         conteudo = subprocess.run(["git", "show", f"{rev}:{REL_ALLOWED_SIGNERS}"],
-                                  cwd=repo, capture_output=True, text=True)
+                                  cwd=repo, capture_output=True, text=True, encoding="utf-8", errors="replace")
         if conteudo.returncode != 0:
             continue
         for linha in conteudo.stdout.splitlines():
@@ -325,5 +325,5 @@ def commit_da_primeira_chave_humana(repo: Path) -> str:
 def commits_apos(repo: Path, rev: str) -> set[str]:
     """Commits alcançáveis de HEAD e não de `rev` — o período sob a regra."""
     p = subprocess.run(["git", "rev-list", f"{rev}..HEAD"],
-                       cwd=repo, capture_output=True, text=True)
+                       cwd=repo, capture_output=True, text=True, encoding="utf-8", errors="replace")
     return set(p.stdout.split()) if p.returncode == 0 else set()

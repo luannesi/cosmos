@@ -40,7 +40,7 @@ def main() -> None:
         sys.exit(0)
     subprocess.run([sys.executable, str(_cli(cwd, "chaos")), "audit", "append",
                     "--action", comando.split()[0] + ".cli"],
-                   cwd=cwd, capture_output=True, text=True)
+                   cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     sys.exit(0)
 
 

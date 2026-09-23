@@ -46,7 +46,7 @@ class Worker:
     # ------------------------------------------------------------------ #
     def _order(self, *args: str) -> tuple[int, dict | str]:
         p = subprocess.run([sys.executable, str(self.order), *args],
-                           cwd=self.repo, capture_output=True, text=True,
+                           cwd=self.repo, capture_output=True, text=True, encoding="utf-8", errors="replace",
                            timeout=self.net_timeout * 4)
         try:
             return p.returncode, json.loads(p.stdout)

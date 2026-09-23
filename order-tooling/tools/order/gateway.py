@@ -76,7 +76,7 @@ def _local(modelo: dict, prompt: str, timeout: int) -> Resposta:
     nome = modelo.get("model_name", modelo["id"])
     try:
         p = subprocess.run([runner, "run", nome], input=prompt,
-                           capture_output=True, text=True, timeout=timeout)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
     except FileNotFoundError:
         raise ErroGateway(
             f"`{runner}` não está instalado — a tarefa é `local_only` e NÃO há "
