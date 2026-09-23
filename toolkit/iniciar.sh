@@ -4,11 +4,18 @@
 # Prepara o ambiente e pergunta o que fazer: conectar a um repositório
 # existente, criar um novo, ou parar por aqui.
 #
-# LIMITE DELIBERADO: não age fora da pasta do pacote e do repositório que você
-# indicar. Não instala o Claude Code, não registra o worker e não grava
-# credencial nenhuma — imprime os comandos no fim. A promessa "nada foi
-# instalado fora desta pasta" é verificável, e um assistente que a quebrasse
-# por conveniência tornaria o pacote impossível de auditar.
+# LIMITE DELIBERADO (opções 1, 2 e 4): por padrão não age fora da pasta do
+# pacote e do repositório que você indicar. Não instala o Claude Code, não
+# registra o worker e não grava credencial nenhuma — imprime os comandos no
+# fim. A promessa "nada foi instalado fora desta pasta" é verificável, e um
+# assistente que a quebrasse por conveniência tornaria o pacote impossível de
+# auditar.
+#
+# A opção 3 é a exceção, deliberada e explícita: quem escolhe "automatizar
+# tudo" está pedindo pra sair desse limite — delega a bootstrap_cosmos.py
+# (Partes 1 a 6), que roda o Onboarding, registra as chaves, empurra pro
+# remoto e registra o worker. Continua nunca guardando frase-secreta nem
+# credencial: essas continuam indo direto pro prompt do terminal.
 
 set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -37,26 +44,37 @@ destino_valido() {
 
 concluir() {
   local repo="$1"
+  local automatizado="${2:-0}"
   printf '%s\n' "$repo" > "$ESTADO"
 
-  titulo "Verificação"
-  if [ -f "$repo/tools/chaos/chaos.py" ]; then
-    ( cd "$repo" && python "$repo/tools/chaos/chaos.py" health ) || {
-      warn "o toolchain do pacote e o vendorizado no repositório divergem (CHAOS §21.1)."
-      warn "Alinhe com:  chaos tooling update <tag>"
-      warn "É escrita em caminho protegido, logo é humana — de propósito."
-    }
-  else
-    say "o repositório ainda não tem tools/chaos (Fase 0 não construída)."
+  if [ "$automatizado" != "1" ]; then
+    titulo "Verificação"
+    if [ -f "$repo/bin/chaos" ]; then
+      ( cd "$repo" && python "$repo/bin/chaos" health ) || {
+        warn "o toolchain do pacote e o vendorizado no repositório divergem (CHAOS §21.1)."
+        warn "Alinhe com:  chaos tooling update <tag>"
+        warn "É escrita em caminho protegido, logo é humana — de propósito."
+      }
+    else
+      say "o repositório ainda não tem tools/chaos (Fase 0 não construída)."
+    fi
   fi
 
-  titulo "Faltam dois passos, e os dois são seus"
-  printf '\n  1) Claude Code — uma linha, sem sudo:\n'
-  printf '     curl -fsSL https://claude.ai/install.sh | bash\n\n'
-  printf '  2) Worker no logon — systemd de usuário (ou LaunchAgent no macOS):\n'
-  printf '     veja a Parte 6 do tutorial (dois minutos)\n\n'
-  say "Este assistente não executa nenhum dos dois de propósito: os dois mexem"
-  say "fora desta pasta, e o pacote promete não fazer isso."
+  if [ "$automatizado" = "1" ]; then
+    titulo "Falta um passo, e é seu"
+    printf '\n  Claude Code — uma linha, sem sudo:\n'
+    printf '     curl -fsSL https://claude.ai/install.sh | bash\n\n'
+    say "Onboarding, chaves, push e worker no logon já foram feitos por"
+    say "bootstrap_cosmos.py — reveja o que ele fez acima."
+  else
+    titulo "Faltam dois passos, e os dois são seus"
+    printf '\n  1) Claude Code — uma linha, sem sudo:\n'
+    printf '     curl -fsSL https://claude.ai/install.sh | bash\n\n'
+    printf '  2) Worker no logon — systemd de usuário (ou LaunchAgent no macOS):\n'
+    printf '     veja a Parte 6 do tutorial (dois minutos)\n\n'
+    say "Este assistente não executa nenhum dos dois de propósito: os dois mexem"
+    say "fora desta pasta, e o pacote promete não fazer isso."
+  fi
   printf '\n'
   ok "repositório pronto em $repo"
 }
@@ -89,10 +107,13 @@ printf '\n'
 printf '  [1] Conectar a um repositório Git que já tem o meu conteúdo\n'
 printf '      (é o caso da segunda máquina em diante)\n\n'
 printf '  [2] Criar um repositório novo do zero\n'
-printf '      (primeira máquina; abre o Onboarding, que faz as perguntas de verdade)\n\n'
-printf '  [3] Só preparar o ambiente, sem repositório\n\n'
+printf '      (abre o Onboarding pra você rodar; chaves e worker ficam por sua conta)\n\n'
+printf '  [3] Criar um repositório novo e automatizar tudo\n'
+printf '      (Onboarding, chaves, push e worker no logon — Partes 1 a 6; sai do\n'
+printf '       limite deliberado acima, de propósito, só quando você escolhe isto)\n\n'
+printf '  [4] Só preparar o ambiente, sem repositório\n\n'
 
-escolha="$(perguntar 'Opção (1/2/3)' '1')"
+escolha="$(perguntar 'Opção (1/2/3/4)' '1')"
 
 # ------------------------------------------------------------------ opção 1
 if [ "$escolha" = "1" ]; then
@@ -123,7 +144,7 @@ fi
 if [ "$escolha" = "2" ]; then
   titulo "Criar um repositório novo"
 
-  if [ ! -f "$ROOT/tools-seed/chaos/chaos.py" ]; then
+  if [ ! -f "$ROOT/tools-seed/bin/chaos" ]; then
     erro "este pacote não traz tools-seed/ — não dá para semear um repositório novo."
     erro "Use a opção 1 com um repositório existente, ou monte o pacote com a semente."
     exit 1
@@ -139,20 +160,51 @@ if [ "$escolha" = "2" ]; then
   destino_valido "$destino" || exit 1
 
   mkdir -p "$destino"
-  ( cd "$destino" && git init -q -b main && python "$ROOT/tools-seed/chaos/chaos.py" init ) || {
+  ( cd "$destino" && git init -q -b main && python "$ROOT/tools-seed/bin/chaos" init ) || {
     erro "'chaos init' falhou — nada foi deixado pela metade em $destino"; exit 1; }
   ok "repositório semeado em $destino"
 
   printf '\n'
   say "Agora rode o Onboarding, que é a etapa que define o seu sistema:"
   printf '     cd %s\n' "$destino"
-  printf '     python tools/chaos/chaos.py onboarding run\n'
+  printf '     python bin/chaos onboarding run\n'
   concluir "$destino"
   exit 0
 fi
 
 # ------------------------------------------------------------------ opção 3
+if [ "$escolha" = "3" ]; then
+  titulo "Criar um repositório novo com tudo automatizado"
+  say "Isso roda bootstrap_cosmos.py (Partes 1 a 6): o Onboarding é perguntado"
+  say "aqui mesmo — cada pergunta sem resposta anterior é feita a você, nada é"
+  say "assumido — as chaves são registradas, o repositório vai pro remoto e o"
+  say "worker é registrado no systemd de usuário."
+  say "Frase-secreta de chave nunca passa por este script: vai direto pro prompt"
+  say "do ssh-keygen/git commit, no terminal."
+  printf '\n'
+
+  motor="$ROOT/bootstrap_cosmos.py"
+  if [ ! -f "$motor" ]; then
+    erro "bootstrap_cosmos.py não encontrado em $ROOT — este pacote não tem o motor automatizado."
+    exit 1
+  fi
+
+  destino="$(perguntar 'Onde criar?' "$HOME/chaos-personal")"
+  destino_valido "$destino" || exit 1
+
+  python3 "$motor" --repo-dir "$destino" --cosmos-dir "$ROOT"
+  rc=$?
+  if [ "$rc" -ne 0 ]; then
+    erro "o instalador parou (código $rc) — rode este menu de novo e escolha [3]:"
+    erro "ele retoma exatamente de onde parou, não refaz o que já foi feito."
+    exit "$rc"
+  fi
+  concluir "$destino" 1
+  exit 0
+fi
+
+# ------------------------------------------------------------------ opção 4
 titulo "Ambiente preparado"
 say "As ferramentas estão no PATH desta janela. Quando quiser um repositório:"
-printf '\n     ./iniciar.sh        (e escolha 1 ou 2)\n\n'
+printf '\n     ./iniciar.sh        (e escolha 1, 2 ou 3)\n\n'
 ok "nada foi instalado fora desta pasta."

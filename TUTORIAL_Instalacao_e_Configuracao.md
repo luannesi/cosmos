@@ -653,6 +653,8 @@ chaos-toolkit-<tag>/
 ├── LEIA-ME.txt
 ├── primeiro-arranque.ps1
 ├── bootstrap.ps1  bootstrap.sh
+├── bootstrap_cosmos.py         <- motor da opção [3] (automatizar tudo, Partes 1-6)
+├── register-worker.ps1  register-worker.sh   <- worker no logon, chamados por [3]
 ├── TOOLKIT.yaml
 ├── git/        PortableGit extraído (só Windows)
 ├── uv/         binário do uv
@@ -716,18 +718,22 @@ cd ~/chaos-toolkit
 ```text
   [1] Conectar a um repositório Git que já tem o meu conteúdo
   [2] Criar um repositório novo do zero
-  [3] Só preparar o ambiente, sem repositório
+  [3] Criar um repositório novo e automatizar tudo (Onboarding, chaves, push
+      e worker no logon — Partes 1 a 6)
+  [4] Só preparar o ambiente, sem repositório
 ```
 
 A opção **1** pede a URL e onde clonar. A autenticação é a que já existe na máquina — sua chave SSH ou o gerenciador de credenciais do Git; o assistente não pede nem guarda token nenhum.
 
 A opção **2** cria a pasta, roda `git init` e `chaos init`, e **para aí**, mandando você rodar `chaos onboarding run`. Isso é de propósito: é o Onboarding que faz as perguntas que definem o seu sistema — classes de privacidade, áreas, identidades, modelos, cotas — e nenhuma delas pode ter resposta silenciosa dada por um assistente de instalação.
 
+A opção **3** é a exceção deliberada: quem a escolhe está pedindo pra sair do limite acima. Ela delega a `bootstrap_cosmos.py`, o motor de instalação automatizada que cobre as Partes 1 a 6 inteiras — e ainda faz cada pergunta do Onboarding a você (nada assumido), mas registra as chaves, empurra pro remoto e registra o worker no logon sozinho. Frase-secreta de chave continua nunca passando pelo script: vai direto pro prompt do `ssh-keygen`/`git commit`, no terminal. É retomável: se parar no meio (erro, Ctrl+C, falta de energia), rode o assistente de novo e escolha [3] outra vez — ele pergunta se quer continuar de onde parou ou recomeçar, e nunca refaz o que já ficou pronto.
+
 Se o destino já existir e tiver conteúdo, ele recusa e pede outro. Nunca sobrescreve. E se você rodar de novo depois, ele lembra do último repositório e oferece retomá-lo.
 
-No fim, ele imprime os dois comandos que faltam — Claude Code e worker no logon — **sem executá-los**. Os dois mexem fora da pasta do pacote, e a promessa de que nada é instalado fora dela só vale se for verdade.
+Nas opções **1**, **2** e **4**, no fim ele imprime os dois comandos que faltam — Claude Code e worker no logon — **sem executá-los**: os dois mexem fora da pasta do pacote, e a promessa de que nada é instalado fora dela só vale se for verdade. Na opção **3**, só o Claude Code continua impresso como pendente — o worker já foi registrado.
 
-### A.4 O que o bootstrap faz — e o que ele não faz
+### A.4 O que o bootstrap faz — e o que ele não faz (opções 1, 2 e 4)
 
 Ele monta o `PATH` e aponta `UV_INSTALL_DIR`, `UV_PYTHON_INSTALL_DIR`, `UV_CACHE_DIR`, `UV_TOOL_DIR`, `UV_TOOL_BIN_DIR` e `OLLAMA_MODELS` para dentro do pacote — nada é escrito no seu perfil nem no `C:`. Confere presença e hash de cada binário, mostra as versões e, se você passar o repositório, roda `chaos health`.
 
@@ -742,6 +748,8 @@ Duas coisas, e as duas são rápidas:
 
 Então a promessa honesta é: **uma linha de instalação e dois minutos de agendador**, em vez das duas a três horas da Parte 1.
 
+Isso vale para as opções 1, 2 e 4. Na opção **3**, o registro do worker já foi feito por `register-worker.ps1`/`register-worker.sh` (chamados pelo próprio `bootstrap_cosmos.py`) — só o Claude Code continua manual, porque ele mora no seu perfil e não faz sentido empacotar.
+
 ### A.6 Checklist da trilha portátil
 
 - [ ] Pacote montado com `uv venv --relocatable`
@@ -753,4 +761,4 @@ Então a promessa honesta é: **uma linha de instalação e dois minutos de agen
 - [ ] `INICIAR.cmd` / `./iniciar.sh` rodou sem aviso de hash
 - [ ] Claude Code instalado e autenticado
 - [ ] `git clone` feito e `chaos health` respondendo `ok`
-- [ ] Worker registrado no logon
+- [ ] Worker registrado no logon (manual nas opções 1/2/4, ou automático pela opção 3)

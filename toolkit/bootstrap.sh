@@ -127,9 +127,9 @@ if [ -n "$_bs_repo" ]; then
   [ -d "$_bs_repo" ] || _die "repositório não encontrado em $_bs_repo"
   cd "$_bs_repo" || _die "não consegui entrar em $_bs_repo"
   _ok "repositório: $_bs_repo"
-  if [ -f "$_bs_repo/tools/chaos/chaos.py" ]; then
+  if [ -f "$_bs_repo/bin/chaos" ]; then
     printf '\n'; _say "chaos health:"
-    python "$_bs_repo/tools/chaos/chaos.py" health || {
+    python "$_bs_repo/bin/chaos" health || {
       _warn "toolchain divergente do vendorizado (CHAOS §21.1)."
       _warn "Alinhe com: chaos tooling update <tag>  — escrita em protected path, logo humana."
     }

@@ -144,7 +144,7 @@ if ($Repo) {
     Set-Location $Repo
     Ok "repositório: $Repo"
 
-    $chaos = Join-Path $Repo 'tools\chaos\chaos.py'
+    $chaos = Join-Path $Repo 'bin\chaos'
     if (Test-Path $chaos) {
         Write-Host ""
         Say "chaos health:"
@@ -154,7 +154,7 @@ if ($Repo) {
             Warn "Alinhe com: chaos tooling update <tag>   — é escrita em protected path, logo humana."
         }
     } else {
-        Say "o repositório ainda não tem tools/chaos — rode `chaos onboarding run` depois da Fase 0"
+        Say "o repositório ainda não tem tools/chaos — rode 'chaos onboarding run' depois da Fase 0"
     }
 } else {
     Write-Host "Próximo passo:" -ForegroundColor Cyan

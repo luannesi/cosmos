@@ -43,7 +43,8 @@ mkdir -p "$PKG"
 
 passo "Copiando scripts e esqueleto"
 for f in INICIAR.cmd iniciar.sh LEIA-ME.txt primeiro-arranque.ps1 \
-         bootstrap.ps1 bootstrap.sh TOOLKIT.yaml requirements.txt; do
+         bootstrap.ps1 bootstrap.sh TOOLKIT.yaml requirements.txt \
+         bootstrap_cosmos.py register-worker.ps1 register-worker.sh; do
   cp "$RAIZ/$f" "$PKG/"
 done
 mkdir -p "$PKG"/{uv,python,venv,wheels,episodic,ollama,models,tools-seed}

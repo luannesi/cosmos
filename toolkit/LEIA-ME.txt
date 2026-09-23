@@ -13,9 +13,15 @@ O assistente pergunta o que você quer fazer:
 
   [1] Conectar a um repositório Git que já tem o seu conteúdo
   [2] Criar um repositório novo do zero
-  [3] Só preparar o ambiente, sem repositório
+  [3] Criar um repositório novo e automatizar tudo (Onboarding,
+      chaves, push e worker no logon — Partes 1 a 6)
+  [4] Só preparar o ambiente, sem repositório
 
-O que este pacote NÃO faz, por decisão de desenho:
+As opções [1], [2] e [4] seguem o limite deliberado abaixo. A
+opção [3] é a exceção, explícita: quem escolhe "automatizar tudo"
+está pedindo pra sair desse limite.
+
+O que este pacote NÃO faz, por decisão de desenho (opções 1, 2 e 4):
 
   - não instala nada fora desta pasta;
   - não guarda nenhuma credencial sua;
@@ -25,8 +31,12 @@ O que este pacote NÃO faz, por decisão de desenho:
   - não se atualiza sozinho;
   - não "conserta" divergência de versão.
 
-Duas coisas continuam sendo instalação sua, e o assistente
-imprime os comandos prontos no fim: o Claude Code (uma linha,
-sem administrador) e o registro do worker no logon.
+Nas opções [1], [2] e [4], duas coisas continuam sendo instalação
+sua, e o assistente imprime os comandos prontos no fim: o Claude
+Code (uma linha, sem administrador) e o registro do worker no
+logon. Na opção [3], só o Claude Code continua manual — Onboarding,
+chaves, push e worker são automatizados por bootstrap_cosmos.py,
+que nunca vê frase-secreta nem credencial: essas continuam indo
+direto pro prompt do terminal (ssh-keygen/git commit).
 
 Detalhes: Implementação §18; tutorial, Apêndice A.

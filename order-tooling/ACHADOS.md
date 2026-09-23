@@ -544,3 +544,36 @@ runbook apontar pro caminho errado. Corrigido: Programa continua
 `pythonw.exe`, Argumentos passa a ser `bin\order-worker` (o script com
 shebang, sem `-m`, sem extensão — `pythonw.exe` executa Python direto, sem
 passar pelo `.cmd`).
+
+---
+
+## 30. O pacote portátil apontava pra um `chaos.py` que nunca existiu — em quatro arquivos ao mesmo tempo
+
+Achado ao integrar `bootstrap_cosmos.py` (motor de instalação automatizada,
+Partes 1 a 6) ao pacote portátil (`toolkit/`, Implementação §18): os quatro
+scripts do próprio pacote — `bootstrap.ps1`, `bootstrap.sh`,
+`primeiro-arranque.ps1` e `iniciar.sh` — chamavam `tools\chaos\chaos.py` (ou,
+antes do `chaos init`, `tools-seed\chaos\chaos.py`) como o executável do
+CHAOS. Esse arquivo nunca existiu: o vendoring cria `tools/chaos/` como
+pacote com vários módulos (`cli.py`, `onboarding.py`, ...), sem nenhum
+`chaos.py` solto, e o executável de verdade sempre foi `bin/chaos` (o mesmo
+padrão de `bin/order`/`bin/order-worker`, já documentado nos achados 26 e
+29).
+
+Mesma família dos achados 26 e 29 — um caminho que só se prova errado ao
+*executar*, nunca ao ler ou ao `chaos validate` — mas desta vez espalhado
+por quatro arquivos que se copiaram uns dos outros: `Test-Path`/`[ -f ... ]`
+contra um arquivo inexistente sempre dava falso, então `primeiro-arranque.ps1`
+e `iniciar.sh` recusavam a opção "criar repositório novo" com "este pacote
+não traz tools-seed/" mesmo quando a semente estava lá, só no caminho certo;
+e `bootstrap.ps1`/`bootstrap.sh`, apontados pra um repositório já existente,
+sempre relatavam "o repositório ainda não tem tools/chaos", mesmo depois do
+Onboarding completo.
+
+Corrigido nos quatro arquivos (e nas instruções impressas por eles, que
+citavam o mesmo caminho errado pro comando manual de `onboarding run`).
+Também corrigido `montar-pacote.ps1`/`montar-pacote.sh`, que não incluíam
+`bootstrap_cosmos.py`/`register-worker.ps1`/`register-worker.sh` na lista de
+arquivos copiados pro pacote final — sem isso, a nova opção [3]
+("automatizar tudo") ficaria faltando em todo pacote montado a partir de
+agora.

@@ -49,7 +49,8 @@ New-Item -ItemType Directory -Path $pkg | Out-Null
 # --- 1. esqueleto e scripts ------------------------------------------------
 Passo "Copiando scripts e esqueleto"
 foreach ($f in @("INICIAR.cmd","iniciar.sh","LEIA-ME.txt","primeiro-arranque.ps1",
-                 "bootstrap.ps1","bootstrap.sh","TOOLKIT.yaml","requirements.txt")) {
+                 "bootstrap.ps1","bootstrap.sh","TOOLKIT.yaml","requirements.txt",
+                 "bootstrap_cosmos.py","register-worker.ps1","register-worker.sh")) {
     Copy-Item (Join-Path $raiz $f) $pkg
 }
 foreach ($d in @("git","uv","python","venv","wheels","episodic","ollama","models")) {
