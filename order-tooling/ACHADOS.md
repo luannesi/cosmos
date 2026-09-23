@@ -482,3 +482,36 @@ usa o único executor `kind: human` do registry como ator efetivo pra
 `materializar`/`ledger`, já que `ident.ator` também levantaria sem
 credencial batendo. Fora da janela de bootstrap, a checagem forte
 (`eh_humano`) continua valendo exatamente como antes.
+
+---
+
+## 28. O default de uma pergunta de lista virava string quando aceito digitando Enter
+
+`chaos onboarding run` grava respostas erradas sem avisar sempre que a
+pergunta é de lista (`lista=True`) **e** a pessoa aceita o default apertando
+Enter em vez de digitar algo. Ex.: `allowed_channels` (default `"self"`)
+vira o texto solto `self` em `metadata/repo.yaml`, não a lista `["self"]`;
+pior, `automations` (default `"briefing-diario"`) some por trás de
+`list("briefing-diario")` em `materializar` — que itera **caractere por
+caractere** da string, e teria criado uma automação por letra
+(`b`, `r`, `i`, ...) se o Onboarding tivesse chegado até lá nessa rodada.
+
+Achado ao rodar o Onboarding de verdade pela primeira vez (Parte 4.3),
+gravando `D:\personal-assistant`: o `git status` mostrou `allowed_channels:
+self` como string solta em vez de lista, o que só é visível olhando o
+arquivo gravado — o comando não erra, não avisa, só grava o tipo errado.
+
+Causa: das três rotas que `coletar()`/`_normalizar()` usam pra resolver o
+valor de uma pergunta (arquivo de respostas, digitado, default sem
+interação), duas já convertiam string-com-vírgula em lista quando
+`p.lista`; só a rota "default aceito com Enter em modo interativo", dentro
+de `_normalizar()`, retornava `p.default` cru. Não é uma pergunta rara —
+é toda pergunta de lista com default não vazio (`surfaces`, `allowed_channels`,
+`capture_ignore`, `functionals`, `automations`), sempre que a resposta for
+"aceito o que já está mostrado".
+
+Correção: `_normalizar()` agora faz a mesma conversão nessa rota também —
+lista com vírgula vira lista de verdade antes de voltar, igual às outras
+duas rotas. Sem isso, qualquer Onboarding real ia embutir esse defeito
+silenciosamente cedo ou tarde — é o caminho que a maioria escolhe (aceitar
+o default é o comum; digitar de novo o que já está na tela, não).

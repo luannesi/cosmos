@@ -178,7 +178,10 @@ def _normalizar(p: Pergunta, bruto: str):
     if not bruto:
         if p.default is None:
             raise ErroChaos(f"`{p.chave}` é obrigatória e não tem default (§3)", "schema")
-        return p.default, "default aceito"
+        valor = p.default
+        if p.lista and isinstance(valor, str):
+            valor = [x.strip() for x in valor.split(",") if x.strip()]
+        return valor, "default aceito"
     if p.bool_:
         return bruto.lower() in ("s", "sim", "y", "yes", "true", "1"), "digitado"
     if p.lista:
