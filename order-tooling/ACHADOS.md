@@ -441,3 +441,44 @@ Achado ao **escrever o runbook de instalação**, não ao rodar nada. Redigir o
 comando que outra pessoa vai digitar obriga a imaginar a máquina dela, e foi
 isso que expôs a diferença. Vale como método: escrever a instrução é uma forma
 barata de testar a hipótese de que o sistema é utilizável.
+
+---
+
+## 27. O Onboarding exigia um humano que só o Onboarding podia criar
+
+`chaos onboarding run` recusava rodar em qualquer repositório recém-criado,
+sempre, para qualquer pessoa: `"[policy] o Onboarding é do proprietário: ele
+define classes de privacidade, identidades e cotas (§3)"`.
+
+A causa era circular. `chaos init` grava `executors.yaml` com placeholders
+(`owner@example.invalid` etc. — RFC 2606, de propósito: §3 diz que é o
+Onboarding quem substitui pelos e-mails reais, pergunta `human_email`).
+`Identidade.eh_humano` deriva o ator cruzando `git config user.email` contra
+esse mesmo arquivo; com só placeholder lá, nenhuma credencial bate, e
+`eh_humano` é `False` — sempre, pra qualquer humano real, porque o arquivo que
+provaria a humanidade dele é o arquivo que o comando bloqueado existe pra
+escrever.
+
+`assinatura.commit_da_primeira_chave_humana` já documentava essa janela — "ela
+acontece no Onboarding, antes de existir agente" — e `chaos init` já tinha a
+defesa certa pro mesmo problema (§17.6: olhar o que o ambiente *declarou*
+via `CHAOS_ACTOR`, não o registry, porque o registry ainda não existe). O
+Onboarding não herdou essa defesa; ganhou uma checagem forte (`eh_humano`,
+via registry) que só faz sentido depois que o próprio Onboarding já rodou.
+
+Não apareceu em nenhuma das 134 rodadas de teste de aceitação pelo mesmo
+motivo do achado 26: harness de teste não passa por `chaos init` seguido de
+`chaos onboarding run` numa credencial Git nova de verdade — ou já parte de
+um `executors.yaml` populado, ou roda sob uma identidade que o teste registra
+por fora. Só apareceu na primeira instalação real, ponta a ponta, numa
+credencial que nunca tinha existido em nenhum registry (Parte 4 do
+`EXECUTAR_COSMOS.md`).
+
+Correção em `cmd_onboarding`: quando `ident.entrada()` é `None` (bootstrap),
+cai pra a mesma defesa fraca-mas-deliberada do `init` — bloqueia só se
+`CHAOS_ACTOR` foi declarado como não-humano, ou se uma chave humana **já**
+foi registrada (janela fechada, via `commit_da_primeira_chave_humana`) — e
+usa o único executor `kind: human` do registry como ator efetivo pra
+`materializar`/`ledger`, já que `ident.ator` também levantaria sem
+credencial batendo. Fora da janela de bootstrap, a checagem forte
+(`eh_humano`) continua valendo exatamente como antes.

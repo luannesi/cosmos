@@ -647,7 +647,37 @@ def cmd_onboarding(repo: Path, ident: Identidade, args) -> int:
                "phase_0_unlocked": marcador.exists()})
         return 0 if relatorios else 1
 
-    if not ident.eh_humano:
+    ator_onboarding = ident.ator if ident.entrada() is not None else None
+    if ator_onboarding is None:
+        # §17.6 bootstrap: logo após `chaos init`, executors.yaml só tem os
+        # placeholders `*@example.invalid` — nenhuma credencial bate ainda,
+        # então `ident.eh_humano` NUNCA pode ser True aqui, por definição.
+        # É justamente este comando que vai gravar a credencial real (a
+        # pergunta `human_email`, §3.1): exigir humano já-verificado pra
+        # rodá-lo é exigir que ele já tivesse rodado — circular, e bloqueia
+        # todo `chaos init` seguinte de onboarding pra sempre, não só este.
+        #
+        # `assinatura.commit_da_primeira_chave_humana` já documenta que essa
+        # janela existe e fecha no Onboarding, antes de existir agente. Ela
+        # usa a mesma defesa deliberadamente fraca do `chaos init` (§17.6):
+        # olha o que o ambiente DECLAROU (`CHAOS_ACTOR`), não o registry —
+        # porque o registry é justamente o que ainda não existe.
+        if assinatura.commit_da_primeira_chave_humana(repo):
+            raise ErroChaos("o Onboarding é do proprietário: ele define classes de "
+                            "privacidade, identidades e cotas (§3)", "policy")
+        ator_declarado = (os.environ.get("CHAOS_ACTOR") or "").strip()
+        if ator_declarado and not ator_declarado.startswith("human:"):
+            raise ErroChaos("o Onboarding é do proprietário: ele define classes de "
+                            "privacidade, identidades e cotas (§3)", "policy")
+        registro = yamlio.ler_yaml(repo / "metadata" / "registries" / "executors.yaml") or {}
+        humanos = [e for e in registro.get("executors", []) if e.get("kind") == "human"]
+        if len(humanos) != 1:
+            raise ErroChaos("bootstrap do Onboarding espera exatamente um executor "
+                            f"`kind: human` em executors.yaml (achei {len(humanos)}) "
+                            "— estado inesperado, investigue antes de prosseguir",
+                            "integrity")
+        ator_onboarding = humanos[0]["id"]
+    elif not ident.eh_humano:
         raise ErroChaos("o Onboarding é do proprietário: ele define classes de "
                         "privacidade, identidades e cotas (§3)", "policy")
 
@@ -666,10 +696,10 @@ def cmd_onboarding(repo: Path, ident: Identidade, args) -> int:
     arquivo = Path(args.answers) if args.answers else None
     interativo = sys.stdin.isatty() and not args.nao_interativo and not arquivo
     respostas = onboarding.coletar(arquivo, interativo)
-    tocados = onboarding.materializar(repo, respostas, ident.ator)
+    tocados = onboarding.materializar(repo, respostas, ator_onboarding)
     destino = onboarding.relatorio(repo, respostas, tocados)
 
-    ledger.append(repo, actor=ident.ator, surface=ident.surface,
+    ledger.append(repo, actor=ator_onboarding, surface=ident.surface,
                   action="onboarding.run", risk_class="A4",
                   summary=f"{len(respostas)} respostas, {len(set(tocados))} arquivos")
     gitops.git(repo, "add", "-A")
