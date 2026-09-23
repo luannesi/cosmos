@@ -84,7 +84,8 @@ def _sistema_de_arquivos(repo: Path) -> list[Violacao]:
             if parte.split(".")[0].upper() in RESERVADOS_WIN:
                 v.append(Violacao("syntax", "nome reservado do Windows", rel))
         if p.suffix in (".md", ".yaml", ".yml", ".json", ".jsonl", ".txt"):
-            if b"\r\n" in p.read_bytes():
+            versionado = gitops.git(repo, "show", f"HEAD:{rel}")
+            if versionado.returncode == 0 and "\r\n" in versionado.stdout:
                 v.append(Violacao("syntax", "CRLF em arquivo versionado — §17.1 "
                                             "exige normalização", rel))
     return v
