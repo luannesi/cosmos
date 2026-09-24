@@ -627,3 +627,32 @@ vazia explícita).
 Corrigido: `-Argument` só é passado quando `$exeArgs` tem pelo menos um
 elemento; quando o `.cmd` já basta sozinho, o parâmetro é omitido da chamada
 em vez de receber `""`.
+
+---
+
+## 33. `Register-ScheduledTask` recusa registro sem admin — e o erro nem para o script
+
+Achado no primeiro teste real de `register-worker.ps1` em `D:\personal-assistant`
+(máquina corporativa): `Register-ScheduledTask` devolveu `Acesso negado`
+(`HRESULT 0x80070005`), e ainda assim o script imprimiu "Tarefa
+registrada/atualizada." na sequência — apesar de `$ErrorActionPreference =
+"Stop"` no topo do arquivo. `Get-ScheduledTask` depois confirmou: a tarefa
+não existia. O erro do Agendador não é sempre um erro terminante para
+`$ErrorActionPreference` do escopo do script — só passando `-ErrorAction
+Stop` direto na própria chamada é que o `try/catch` intercepta de verdade.
+
+A causa raiz do "Acesso negado" em si: o Agendador de Tarefas pode recusar
+registro/atualização de tarefa pra usuário sem privilégio de administrador,
+dependendo de política do Windows — comum em máquina corporativa (é o caso
+de Luan, que trabalha num instituto de pesquisa com política de segurança
+restritiva já observada em outras áreas, como o bloqueio de conectores MCP).
+
+Corrigido: a chamada a `Register-ScheduledTask` agora vai num `try/catch`
+com `-ErrorAction Stop` explícito na própria chamada (não confiando só na
+preferência de escopo). Quando falha, o script cai automaticamente pra um
+atalho `.lnk` na pasta Inicializar do usuário (`shell:startup`,
+`New-Object -ComObject WScript.Shell`) — isso não exige nenhum privilégio,
+porque é só uma escrita na própria pasta de perfil. A diferença prática: o
+atalho só roda em logon interativo de verdade (não em qualquer logon, como
+o Agendador permitiria configurar), mas é suficiente pro uso pessoal que o
+worker precisa.

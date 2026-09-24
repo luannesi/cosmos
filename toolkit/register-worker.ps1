@@ -1,7 +1,7 @@
 ﻿<#
 .SYNOPSIS
     Registra o worker do CHAOS/ORDER para iniciar automaticamente no logon
-    (Windows), via Agendador de Tarefas.
+    (Windows), via Agendador de Tarefas — com fallback pra pasta Inicializar.
 
 .DESCRIPTION
     Equivalente scriptado da Parte 6 (Windows) de TUTORIAL_Instalacao_e_Configuracao.md.
@@ -11,9 +11,20 @@
     Idempotente: se a tarefa já existir, ela é atualizada (Register-ScheduledTask
     -Force), não duplicada.
 
+    Em máquina corporativa é comum o Agendador de Tarefas recusar o registro
+    pra usuário sem privilégio de administrador (Acesso negado, achado 33).
+    Quando isso acontece, o script cai automaticamente pra um atalho na pasta
+    Inicializar do usuário (`shell:startup`) — não precisa de nenhum
+    privilégio especial, só grava um arquivo na pasta de perfil do próprio
+    usuário. A diferença prática: a tarefa agendada roda em qualquer logon
+    (inclusive sem sessão interativa, dependendo da configuração); o atalho
+    só roda quando você faz logon interativo de verdade — o suficiente pro
+    worker de uso pessoal.
+
     Não lida com nenhum dado sensível: só recebe o caminho do repositório e
     monta os caminhos derivados dele (bin\order-worker(.cmd), pythonw.exe do
-    ambiente ativo). Nada é gravado fora da própria tarefa agendada do Windows.
+    ambiente ativo). Nada é gravado fora da própria tarefa agendada do Windows
+    ou da pasta Inicializar do usuário atual.
 
 .PARAMETER RepoDir
     Caminho do repositório CHAOS pessoal já inicializado (ex.: D:\personal-assistant).
@@ -80,16 +91,58 @@ $settings = New-ScheduledTaskSettingsSet `
     -DontStopIfGoingOnBatteries `
     -StartWhenAvailable
 
-Register-ScheduledTask -TaskName $TaskName `
-    -Action $action -Trigger $trigger -Settings $settings `
-    -Description "Worker CHAOS/ORDER de $RepoDir — processa a fila local no logon (Parte 6)." `
-    -Force | Out-Null
+# --- registrar no Agendador de Tarefas, com fallback pra pasta Inicializar ---
+# `-ErrorAction Stop` aqui, explícito na chamada: já vimos em máquina real
+# que o Agendador pode devolver "Acesso negado" como erro NÃO-terminante,
+# que $ErrorActionPreference = "Stop" no escopo do script não intercepta —
+# sem isso, o script seguia adiante como se tivesse dado certo (achado 33).
+$registrado = $false
+try {
+    Register-ScheduledTask -TaskName $TaskName `
+        -Action $action -Trigger $trigger -Settings $settings `
+        -Description "Worker CHAOS/ORDER de $RepoDir — processa a fila local no logon (Parte 6)." `
+        -Force -ErrorAction Stop | Out-Null
+    $registrado = $true
+} catch {
+    Write-Host ""
+    Write-Host "  [aviso] Agendador de Tarefas recusou o registro: $($_.Exception.Message)" -ForegroundColor Yellow
+    Write-Host "  Comum em máquina corporativa com política que restringe o Agendador" -ForegroundColor Yellow
+    Write-Host "  pra quem não é administrador. Caindo pro atalho na pasta Inicializar." -ForegroundColor Yellow
+}
 
-Write-Host "  Tarefa registrada/atualizada."
-Write-Host ""
-Write-Host "Pra testar agora sem esperar o próximo logon:"
-Write-Host "  Start-ScheduledTask -TaskName '$TaskName'"
-Write-Host "Pra conferir o estado:"
-Write-Host "  Get-ScheduledTask -TaskName '$TaskName' | Get-ScheduledTaskInfo"
-Write-Host "Pra remover:"
-Write-Host "  Unregister-ScheduledTask -TaskName '$TaskName' -Confirm:`$false"
+if ($registrado) {
+    Write-Host "  Tarefa registrada/atualizada no Agendador de Tarefas."
+    Write-Host ""
+    Write-Host "Pra testar agora sem esperar o próximo logon:"
+    Write-Host "  Start-ScheduledTask -TaskName '$TaskName'"
+    Write-Host "Pra conferir o estado:"
+    Write-Host "  Get-ScheduledTask -TaskName '$TaskName' | Get-ScheduledTaskInfo"
+    Write-Host "Pra remover:"
+    Write-Host "  Unregister-ScheduledTask -TaskName '$TaskName' -Confirm:`$false"
+} else {
+    # Atalho .lnk na pasta Inicializar do usuário atual — não exige nenhum
+    # privilégio: é uma escrita comum na própria pasta de perfil.
+    $startupDir = [Environment]::GetFolderPath('Startup')
+    $lnkPath = Join-Path $startupDir "$TaskName.lnk"
+
+    $shell = New-Object -ComObject WScript.Shell
+    $shortcut = $shell.CreateShortcut($lnkPath)
+    $shortcut.TargetPath = $exe
+    if ($exeArgs.Count -gt 0) {
+        $shortcut.Arguments = ($exeArgs -join " ")
+    }
+    $shortcut.WorkingDirectory = $RepoDir
+    $shortcut.Description = "Worker CHAOS/ORDER de $RepoDir (Parte 6, via pasta Inicializar)"
+    $shortcut.Save()
+
+    Write-Host "  Atalho criado: $lnkPath"
+    Write-Host ""
+    Write-Host "  Isso roda o worker a cada logon interativo — não em segundo plano sem"
+    Write-Host "  sessão aberta, ao contrário do Agendador, mas não exige privilégio"
+    Write-Host "  nenhum, e basta pro uso pessoal."
+    Write-Host ""
+    Write-Host "Pra testar agora sem esperar o próximo logon, abra o atalho:"
+    Write-Host "  Invoke-Item '$lnkPath'"
+    Write-Host "Pra remover:"
+    Write-Host "  Remove-Item '$lnkPath'"
+}
