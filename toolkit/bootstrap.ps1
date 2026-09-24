@@ -58,7 +58,7 @@ Ok "pacote tag $tag"
 # formas confusas (às vezes silenciosamente). Desbloquear é barato; descobrir
 # depois, não.
 $blocked = Get-ChildItem -Path $Root -Recurse -File -ErrorAction SilentlyContinue |
-           Where-Object { Get-Item $_.FullName -Stream Zone.Identifier -ErrorAction SilentlyContinue }
+           Where-Object { Get-Item -LiteralPath $_.FullName -Stream Zone.Identifier -ErrorAction SilentlyContinue }
 if ($blocked) {
     Warn "$($blocked.Count) arquivo(s) ainda marcados como baixados da internet — desbloqueando"
     $blocked | Unblock-File

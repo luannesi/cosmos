@@ -257,7 +257,7 @@ $cabecalhos = @("BEGIN OPENSSH PRIVATE KEY","BEGIN RSA PRIVATE KEY",
 # .pem público do pacote — cacert.pem, ca-bundle.pem — que não tinham nada a
 # esconder).
 function ContemChavePrivada($caminho) {
-    $t = Get-Content $caminho -Raw -ErrorAction SilentlyContinue
+    $t = Get-Content -LiteralPath $caminho -Raw -ErrorAction SilentlyContinue
     if (-not $t) { return $false }
     foreach ($c in $cabecalhos) {
         $fim = $c -replace "^BEGIN ", "END "
@@ -283,7 +283,7 @@ Get-ChildItem $pkg -Recurse -File -Include "id_ed25519","id_rsa",".env*" | ForEa
     $suspeitos += $_.FullName
 }
 Get-ChildItem $pkg -Recurse -File -Include "allowed_signers" | ForEach-Object {
-    $linhas = (Get-Content $_.FullName | Where-Object { $_.Trim() -and -not $_.StartsWith("#") })
+    $linhas = (Get-Content -LiteralPath $_.FullName | Where-Object { $_.Trim() -and -not $_.StartsWith("#") })
     if ($linhas) { $suspeitos += "$($_.FullName) (contém chave registrada — deve ir VAZIO)" }
 }
 if ($suspeitos) {

@@ -816,3 +816,52 @@ solta) e não a diferença entre "é uma chave" e "fala sobre chave" cedo ou tar
 reprova algo inofensivo — e o risco real de um alarme falso deste tamanho é o
 operador aprender a ignorá-lo ou a rodar com `-SkipVerificacao` da próxima vez,
 que é exatamente o cenário que o §18.3 existe para evitar.
+
+## Achado 38 — `bootstrap.ps1` abortava no destino por causa de um arquivo do próprio PortableGit: `git\usr\bin\[.exe`
+
+Terceira tentativa: o ZIP montou com sucesso (achados 35–37 resolvidos), Luan extraiu em
+`D:\COSMOS\myCosmos` e rodou `INICIAR.cmd`. `primeiro-arranque.ps1` chamou `bootstrap.ps1`,
+que leu `TOOLKIT.yaml` (`[ok] pacote tag v0.1.0`) e travou na etapa seguinte — a varredura
+de Mark-of-the-Web — com:
+
+    [erro] o ambiente não pôde ser preparado: Não é possível recuperar parâmetros
+    dinâmicos para o cmdlet. O padrão de caractere curinga especificado não é
+    válido: [.exe
+
+Causa: o MSYS2 que vem dentro do PortableGit inclui `usr\bin\[.exe` — o utilitário `[`
+(sinônimo de `test`, é assim que `[ condição ]` funciona em shell POSIX; ver
+`chaos-toolkit-v0.1.0.zip` → 14264 arquivos, exatamente 1 com colchete no nome, e é
+esse). Legítimo, não é lixo nem corrupção — todo pacote vai ter esse arquivo para sempre,
+porque vem de cima do próprio Git for Windows.
+
+A varredura de Mark-of-the-Web em `bootstrap.ps1` faz:
+
+    Get-ChildItem -Path $Root -Recurse -File | Where-Object {
+        Get-Item $_.FullName -Stream Zone.Identifier -ErrorAction SilentlyContinue
+    }
+
+`$_.FullName` é uma STRING pura passada posicionalmente para `Get-Item` — que a interpreta
+como padrão de wildcard (parâmetro `-Path`, não `-LiteralPath`). Um nome de arquivo com "["
+sem "]" correspondente (o caso de `[.exe`) é um padrão de wildcard malformado, e resolver os
+parâmetros dinâmicos do `Get-Item` (o `-Stream`, que só existe para NTFS) exige resolver o
+`-Path` antes — é aí que a exceção acontece, antes mesmo do `-ErrorAction
+SilentlyContinue` ter chance de suprimir (é erro de binding de parâmetro, não erro do
+cmdlet em execução).
+
+A verificação de segredos (achado 37) tinha o mesmíssimo padrão em duas chamadas —
+`Get-Content $caminho` em `ContemChavePrivada` e `Get-Content $_.FullName` no check do
+`allowed_signers` — e não travou na MONTAGEM só porque `[.exe` (binário MSYS, >64KB) fica
+de fora do filtro de tamanho da varredura geral e não é `.pem`/`.key`. Bomba-relógio: uma
+mudança de threshold, ou um build do MSYS que produza um `[.exe` menor, dispararia o mesmo
+erro ali.
+
+Corrigido (as três ocorrências, `bootstrap.ps1` e `montar-pacote.ps1`): troca de `Get-Item
+$_.FullName ...` / `Get-Content $caminho ...` / `Get-Content $_.FullName ...` para usar
+`-LiteralPath` explicitamente. `-LiteralPath` nunca interpreta o valor como wildcard,
+então nomes com `[`, `]`, `` ` ``, `?`, `*` — sejam de que ferramenta vier dentro do
+pacote — deixam de ser um risco estrutural.
+
+Lição: qualquer script que itere `Get-ChildItem -Recurse` sobre uma árvore de terceiros
+(PortableGit, um venv Python, node_modules, o que for) e repasse o nome do arquivo
+adiante para outro cmdlet do provedor FileSystem tem que usar `-LiteralPath` — nunca
+`-Path` posicional. O conteúdo dessas árvores não é controlado por quem escreve o script.
