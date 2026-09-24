@@ -686,3 +686,52 @@ dois casos, se o binário foi incluído, `primeiro-arranque.ps1`/`iniciar.sh`
 oferece ativá-lo no destino — sempre como pergunta, nunca automático, e o
 Ollama nunca baixa modelo sozinho (continua sendo decisão explícita, são
 gigabytes).
+
+---
+
+## 35. `montar-pacote.ps1`/`.sh` não rodava contra NENHUM repositório real — `-RepoOrigem` precisa ser a árvore-semente, não um repositório pessoal
+
+Achado ao explicar pra Luan de onde `montar-pacote.ps1 -RepoOrigem
+D:\personal-assistant` tirava o conteúdo do pacote — a pergunta dele
+("isso não está empacotando o meu assistente pessoal, em vez do sistema?")
+levou a conferir de verdade, e nenhum dos três caminhos óbvios do disco dele
+funcionava:
+
+- `D:\cosmos` (raiz): não passa nem na primeira checagem — não tem
+  `tools\chaos\cli.py` na raiz. É o repositório do projeto (specs + toolkit
+  + `order-tooling\`), não uma árvore-semente construída.
+- `D:\personal-assistant` (repositório pessoal, já passou por `chaos init`):
+  passa na primeira checagem (tem `tools\chaos\cli.py`), mas quebraria na
+  etapa 2 — não tem `hooks\` na raiz. `tools/chaos/layout.py::_vendorizar_hooks`
+  confirma por quê: depois do `chaos init`, os hooks vivem vendorizados em
+  `.claude\hooks\`, não numa pasta `hooks\` solta na raiz. A árvore-semente
+  (`hooks\` na raiz, ao lado de `tools\` e `bin\`) e o repositório já
+  inicializado (`.claude\hooks\`) têm layouts diferentes, e o script
+  confundia os dois.
+- `D:\cosmos\order-tooling\`: tem `tools\chaos\cli.py` e `hooks\` na raiz —
+  é a árvore-semente de verdade — mas não tem `metadata\tooling.yaml` (esse
+  arquivo só existe em repositório inicializado), e a versão `.ps1` do
+  script lia esse arquivo sem checar `Test-Path` antes, então quebraria ali
+  também. A versão `.sh` já tinha esse guard (`if [ -f ... ]`); só o `.ps1`
+  não tinha.
+
+Ou seja: o script nunca tinha rodado contra nada real neste projeto —
+nenhum dos três candidatos completava a montagem sem erro.
+
+Corrigido: `montar-pacote.ps1`/`.sh` agora checam explicitamente `hooks\`/
+`hooks/` na raiz de `$RepoOrigem` logo na etapa 0, com uma mensagem que já
+explica o motivo (repositório inicializado não serve, é a árvore-semente
+que serve) em vez de deixar o `Copy-Item`/`cp -r` da etapa 2 falhar com um
+erro genérico de "caminho não encontrado". A leitura de
+`metadata\tooling.yaml` no `.ps1` ganhou o mesmo `Test-Path` que o `.sh` já
+tinha — sem o arquivo, a conferência de tag é só pulada com aviso, não
+aborta a montagem (a árvore-semente canônica nunca tem esse arquivo). O
+cabeçalho e o exemplo de uso dos dois scripts passaram a apontar
+`order-tooling\`/`order-tooling/` como o `-RepoOrigem`/`--repo` correto.
+
+Confirma também, por outro caminho, que a preocupação de Luan era infundada
+quanto a vazar dado pessoal: mesmo antes deste achado, a etapa 2 só copia
+`tools\`, `hooks\` e `bin\` — nunca `areas\`, `tasks\`, `order\`, `audit\`
+ou qualquer pasta de conteúdo. Uma busca por nomes pessoais no código-fonte
+de `order-tooling\` (não nos `.pyc`, que carregam o caminho absoluto de
+compilação e já são apagados antes de compactar) não achou nada.

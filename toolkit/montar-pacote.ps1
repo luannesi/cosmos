@@ -5,6 +5,14 @@
     máquinas consomem. Não é o assistente de primeiro arranque
     (`primeiro-arranque.ps1`) — aquele roda no destino; este, na origem.
 
+    -RepoOrigem é a ÁRVORE-SEMENTE genérica (tools/, hooks/, bin/ na raiz,
+    achado 35) — em D:\cosmos isso é order-tooling\, NÃO a raiz de
+    D:\cosmos (que não tem tools\chaos\cli.py) nem um repositório pessoal já
+    inicializado como D:\personal-assistant (que não tem hooks\ na raiz —
+    depois do `chaos init` os hooks vivem vendorizados em .claude\hooks\,
+    não na árvore-semente). Só order-tooling\ (ou equivalente) serve aqui:
+    é código genérico, sem nada do conteúdo pessoal de ninguém.
+
     O que ele NÃO faz, e é deliberado:
       - não baixa modelos do Ollama (gigabytes que o `pull` busca no destino);
       - não inclui credencial nem chave de assinatura — e verifica isso antes
@@ -19,8 +27,8 @@
     vai entregar pra alguém que os quer (achado 34).
 
     Uso:
-        .\montar-pacote.ps1 -RepoOrigem D:\chaos-pessoal -Tag v0.1.0
-        .\montar-pacote.ps1 -RepoOrigem D:\chaos-pessoal -Tag v0.1.0 -ComOllama -ComAiMemory
+        .\montar-pacote.ps1 -RepoOrigem D:\cosmos\order-tooling -Tag v0.1.0
+        .\montar-pacote.ps1 -RepoOrigem D:\cosmos\order-tooling -Tag v0.1.0 -ComOllama -ComAiMemory
 #>
 param(
     [Parameter(Mandatory = $true)][string]$RepoOrigem,
@@ -42,14 +50,25 @@ function Fatal($t) { Write-Host "`nABORTADO: $t" -ForegroundColor Red; exit 1 }
 # --- 0. origem -------------------------------------------------------------
 Passo "Conferindo o repositório de origem"
 if (-not (Test-Path (Join-Path $RepoOrigem "tools\chaos\cli.py"))) {
-    Fatal "`$RepoOrigem não parece um repositório CHAOS construído (falta tools\chaos\cli.py)."
+    Fatal "`$RepoOrigem não parece uma árvore-semente construída (falta tools\chaos\cli.py) — use algo como D:\cosmos\order-tooling, não a raiz de D:\cosmos nem um repositório pessoal já inicializado."
 }
-$tagRepo = (Select-String -Path (Join-Path $RepoOrigem "metadata\tooling.yaml") `
-            -Pattern 'vendored_tag:\s*"?([^"\s]+)"?').Matches.Groups[1].Value
-if ($tagRepo -ne $Tag) {
-    # Não é fatal, mas é exatamente o descasamento que `chaos health` vai
-    # reportar como `drift` em toda máquina que receber este pacote.
-    Aviso "tag pedida ($Tag) difere da vendorizada no repositório ($tagRepo)."
+if (-not (Test-Path (Join-Path $RepoOrigem "hooks"))) {
+    Fatal "`$RepoOrigem não tem hooks\ na raiz — um repositório já inicializado (`chaos init`) não serve aqui, porque os hooks vivem vendorizados em .claude\hooks\, não na árvore-semente (achado 35). Use a árvore-semente (ex.: D:\cosmos\order-tooling)."
+}
+$tagYaml = Join-Path $RepoOrigem "metadata\tooling.yaml"
+if (Test-Path $tagYaml) {
+    $tagRepo = (Select-String -Path $tagYaml -Pattern 'vendored_tag:\s*"?([^"\s]+)"?').Matches.Groups[1].Value
+    if ($tagRepo -ne $Tag) {
+        # Não é fatal, mas é exatamente o descasamento que `chaos health` vai
+        # reportar como `drift` em toda máquina que receber este pacote.
+        Aviso "tag pedida ($Tag) difere da vendorizada no repositório ($tagRepo)."
+    }
+} else {
+    # A árvore-semente canônica (ex.: order-tooling\) não carrega
+    # metadata\tooling.yaml — esse arquivo só existe em repositório já
+    # inicializado (achado 35). Sem ele não há o que comparar; não é erro.
+    Aviso "`$RepoOrigem não tem metadata\tooling.yaml — pulando a conferência de tag"
+    Aviso "(normal quando a origem é a árvore-semente, ex.: order-tooling\)."
 }
 
 $pkg = Join-Path $raiz $Destino

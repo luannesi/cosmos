@@ -5,6 +5,13 @@
 # plataforma: aqui não há PortableGit (o Git do sistema serve e é o caminho
 # normal no Linux e no macOS), e o restante é idêntico.
 #
+# --repo é a ÁRVORE-SEMENTE genérica (tools/, hooks/, bin/ na raiz, achado
+# 35) — em D:\cosmos isso é order-tooling/, NÃO a raiz do repositório cosmos
+# (que não tem tools/chaos/cli.py) nem um repositório pessoal já inicializado
+# (que não tem hooks/ na raiz — depois do `chaos init` os hooks vivem
+# vendorizados em .claude/hooks/, não na árvore-semente). Só order-tooling/
+# (ou equivalente) serve aqui: é código genérico, sem conteúdo pessoal.
+#
 # Ollama e ai-memory são OPCIONAIS e opt-IN (--com-ollama / --com-ai-memory),
 # ao contrário do Git no Windows que é opt-OUT: o Ollama sozinho, sem nenhum
 # modelo, passa de 1,7 GB no Linux por causa do runtime CUDA/ROCm — bem longe
@@ -12,8 +19,8 @@
 # quando quem monta o pacote já sabe que vai entregar pra alguém que os quer
 # (achado 34).
 #
-#   ./montar-pacote.sh --repo ~/chaos-pessoal --tag v0.1.0
-#   ./montar-pacote.sh --repo ~/chaos-pessoal --tag v0.1.0 --com-ollama --com-ai-memory
+#   ./montar-pacote.sh --repo ~/cosmos/order-tooling --tag v0.1.0
+#   ./montar-pacote.sh --repo ~/cosmos/order-tooling --tag v0.1.0 --com-ollama --com-ai-memory
 set -euo pipefail
 
 RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -49,7 +56,8 @@ sha256_de() { # caminho -> hash em minúsculas, ou "" se o arquivo não existe
 [ -n "$REPO" ] && [ -n "$TAG" ] || fatal "uso: $0 --repo <caminho> --tag <tag>"
 
 passo "Conferindo o repositório de origem"
-[ -f "$REPO/tools/chaos/cli.py" ] || fatal "--repo não parece um repositório CHAOS construído."
+[ -f "$REPO/tools/chaos/cli.py" ] || fatal "--repo não parece uma árvore-semente construída (falta tools/chaos/cli.py) -- use algo como ~/cosmos/order-tooling, não a raiz do cosmos nem um repositório pessoal já inicializado."
+[ -d "$REPO/hooks" ] || fatal "--repo não tem hooks/ na raiz -- um repositório já inicializado ('chaos init') não serve aqui, porque os hooks vivem vendorizados em .claude/hooks/, não na árvore-semente (achado 35). Use a árvore-semente (ex.: ~/cosmos/order-tooling)."
 if [ -f "$REPO/metadata/tooling.yaml" ]; then
   TAG_REPO="$(sed -n 's/.*vendored_tag:[[:space:]]*"\{0,1\}\([^"[:space:]]*\).*/\1/p' \
               "$REPO/metadata/tooling.yaml" | head -1)"
