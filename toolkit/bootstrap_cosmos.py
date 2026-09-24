@@ -163,13 +163,22 @@ def rodar(cmd: list[str], cwd: Path | None = None, check: bool = True,
     assinar): a frase-secreta nunca passa por este script porque o processo
     filho fala direto com o terminal, sem stdio capturado.
     """
-    if herdar_stdio:
-        p = subprocess.run(cmd, cwd=cwd)
-        saida = ""
-    else:
-        p = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True,
-                            encoding="utf-8", errors="replace")
-        saida = (p.stdout or "") + (p.stderr or "")
+    try:
+        if herdar_stdio:
+            p = subprocess.run(cmd, cwd=cwd)
+            saida = ""
+        else:
+            p = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True,
+                                encoding="utf-8", errors="replace")
+            saida = (p.stdout or "") + (p.stderr or "")
+    except FileNotFoundError:
+        # subprocess.run levanta FileNotFoundError quando o EXECUTÁVEL em si
+        # não existe -- diferente de rodar e devolver código != 0. Quem chama
+        # rodar(..., check=False) pra só perguntar "essa ferramenta existe?"
+        # (ex.: `gh --version`, já que gh não vem no pacote) espera testar
+        # p.returncode, não levar uma exceção não tratada (achado 40).
+        saida = f"`{cmd[0]}` não encontrado no PATH"
+        p = subprocess.CompletedProcess(cmd, returncode=127, stdout="", stderr=saida)
     if check and p.returncode != 0:
         raise ErroPasso(f"`{' '.join(cmd)}` falhou (código {p.returncode}):\n{saida.strip()}")
     return p

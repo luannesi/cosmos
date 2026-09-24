@@ -911,3 +911,40 @@ exibição, não promove a erro de script.
 Lição: "relocatable" tem que ser verificado ponta a ponta, não só no arquivo de
 configuração — o binário que efetivamente é invocado pode ter uma noção diferente
 (e não documentada no primeiro lugar óbvio) do que "relocatable" significa.
+
+## Achado 40 — `bootstrap_cosmos.py` quebrava (traceback cru) quando `gh` não está instalado, apesar do código já prever isso
+
+Quinta tentativa, primeira vez validando o Onboarding automatizado (opção [3] do menu):
+`primeiro-arranque.ps1` chamou `bootstrap_cosmos.py`, que já retomou corretamente de uma
+tentativa anterior (2/10 passos), e quebrou na Parte 2 com um traceback Python cru:
+
+    FileNotFoundError: [WinError 2] O sistema não pode encontrar o arquivo especificado
+    (em subprocess.run, chamado por rodar(), chamado por passo_repo_remoto())
+
+O código de `passo_repo_remoto()` já PREVIA essa situação — `gh` (GitHub CLI) nunca foi
+incluído no pacote de propósito (é ferramenta de identidade de quem monta, não do
+sistema), e o próprio código faz:
+
+    p = rodar(["gh", "--version"], check=False)
+    tem_gh = p.returncode == 0
+    if not tem_gh:
+        print("GitHub CLI (`gh`) não encontrado — crie o repositório manualmente...")
+        ...
+
+O problema é um degrau abaixo: `rodar()` chama `subprocess.run(cmd, ...)` direto.
+`check=False` só suprime `CalledProcessError` de um código de saída != 0 — não suprime
+`FileNotFoundError`, que é o que o Python levanta quando o EXECUTÁVEL em si não existe no
+PATH (caso de `gh` ausente). A checagem "essa ferramenta existe?" nunca chegava a rodar;
+o script inteiro morria uma linha antes dela, com traceback cru em vez da mensagem
+amigável que já existia pronta logo abaixo.
+
+Corrigido em `rodar()` (o único lugar por onde todo comando externo passa): agora
+`FileNotFoundError` é capturado e convertido num `CompletedProcess` sintético com
+`returncode=127` (convenção Unix pra "comando não encontrado") — daí em diante todo
+chamador que já testa `p.returncode` (como `passo_repo_remoto`) funciona exatamente como
+foi escrito, sem precisar saber a diferença entre "rodou e falhou" e "não existe".
+
+Lição: `check=False` em `subprocess.run`/wrappers em cima dele só cobre o caso "rodou e
+retornou código != 0" — testar a EXISTÊNCIA de uma ferramenta externa opcional (que é
+exatamente o que esse código já tentava fazer) exige tratar `FileNotFoundError` à parte,
+ou usar `shutil.which()` antes de tentar rodar.
