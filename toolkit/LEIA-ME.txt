@@ -39,4 +39,39 @@ chaves, push e worker são automatizados por bootstrap_cosmos.py,
 que nunca vê frase-secreta nem credencial: essas continuam indo
 direto pro prompt do terminal (ssh-keygen/git commit).
 
-Detalhes: Implementação §18; tutorial, Apêndice A.
+Pacotes adicionais opcionais (Ollama e ai-memory)
+--------------------------------------------------
+
+Nenhum dos dois é necessário: o COSMOS funciona inteiro sem os dois
+(é um teste de aceitação formal da especificação — AT-34, para o
+ai-memory — e a Parte 4 do tutorial explica o que fica bloqueado
+sem GPU/Ollama). Por isso os dois são OPT-IN, ao contrário do resto
+deste pacote:
+
+  - Ollama (modelos locais): quem monta o pacote decide incluir com
+    `montar-pacote.ps1 -ComOllama` (ou `montar-pacote.sh
+    --com-ollama`). Sozinho, sem CUDA, fica em torno de 200 MB;
+    com `-OllamaComCuda` (aceleração NVIDIA), passa de 1,4 GB — por
+    isso não vem por padrão, mesmo sendo opt-in. Modelos em si
+    continuam de fora sempre: são gigabytes que só fazem sentido
+    baixar na máquina de destino, e essa etapa é sempre uma
+    pergunta, nunca automática.
+
+  - ai-memory (camada episódica, opcional — CHAOS §4.2): quem monta
+    o pacote decide incluir com `-ComAiMemory` / `--com-ai-memory`.
+    Pequeno (~18-40 MB), verificado por sha256 contra o publicado
+    pelo projeto. O caminho nativo embutido no pacote é rotulado
+    "experimental" pelo próprio projeto no Windows — Docker
+    continua sendo a via recomendada (Parte 1.5 do tutorial) e
+    nunca é automatizado por este pacote, porque gera um token de
+    autenticação, que é exatamente o tipo de credencial que este
+    pacote promete nunca guardar.
+
+Se quem montou o pacote incluiu um dos dois (ou os dois), o
+assistente pergunta, no final da instalação, se você quer ativá-los
+agora — sempre uma pergunta, nunca silencioso, e nunca baixa modelo
+do Ollama sem confirmar. Se nenhum dos dois foi incluído, o
+assistente avisa e mostra como adicionar depois.
+
+Detalhes: Implementação §18; tutorial, Apêndice A; ACHADOS,
+achado 34.

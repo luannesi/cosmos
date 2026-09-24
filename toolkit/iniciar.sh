@@ -16,6 +16,12 @@
 # (Partes 1 a 6), que roda o Onboarding, registra as chaves, empurra pro
 # remoto e registra o worker. Continua nunca guardando frase-secreta nem
 # credencial: essas continuam indo direto pro prompt do terminal.
+#
+# Ollama e ai-memory (achado 34): se quem montou o pacote incluiu os
+# binários (montar-pacote.sh --com-ollama / --com-ai-memory), este
+# assistente oferece ativá-los no final — sempre uma pergunta, nunca
+# automático por padrão, e nunca baixa modelo do Ollama sozinho (isso
+# continua manual, são gigabytes).
 
 set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -40,6 +46,65 @@ destino_valido() {
     return 1
   fi
   return 0
+}
+
+ativar_pacotes_opcionais() {
+  # Só existe algo a oferecer se quem montou o pacote incluiu os binários
+  # (montar-pacote.sh --com-ollama / --com-ai-memory) — por padrão eles não
+  # vêm, e este assistente nunca baixa nada sozinho: só ativa o que já está
+  # na pasta.
+  [ -t 0 ] || return 0   # sem terminal interativo, não pergunta nada
+
+  local ollama_bin="$ROOT/ollama/ollama"
+  local aimem_bin="$ROOT/episodic/ai-memory"
+  [ -x "$ollama_bin" ] || [ -x "$aimem_bin" ] || return 0
+
+  titulo "Pacotes opcionais deste pacote"
+
+  if [ -x "$ollama_bin" ]; then
+    r="$(perguntar 'Ativar o Ollama agora? (só confere o binário — nenhum modelo é baixado) (s/n)' 'n')"
+    case "$r" in
+      [sSyY]*)
+        "$ollama_bin" --version
+        ok "Ollama pronto em ollama/ollama"
+        rm_="$(perguntar 'Baixar também um modelo pequeno agora? (alguns GB, precisa de rede) (s/n)' 'n')"
+        case "$rm_" in
+          [sSyY]*)
+            modelo="$(perguntar 'Qual modelo (ollama.com/library)?' 'llama3.2:3b')"
+            "$ollama_bin" pull "$modelo"
+            ;;
+        esac
+        ;;
+      *) say "Pra ativar depois:  ollama/ollama --version" ;;
+    esac
+  fi
+
+  if [ -x "$aimem_bin" ]; then
+    printf '\n'
+    say "ai-memory é a camada episódica (opcional — CHAOS §4.2); o sistema"
+    say "funciona inteiro sem ela (AT-34). Aqui é o caminho nativo (systemd de"
+    say "usuário ou LaunchAgent no macOS) — Docker é a via recomendada pelo"
+    say "próprio projeto (veja a Parte 1.5 do tutorial); isso ativa só o"
+    say "binário nativo que já está nesta pasta."
+    r="$(perguntar "Ativar o ai-memory agora (roda 'ai-memory init', caminho nativo)? (s/n)" 'n')"
+    case "$r" in
+      [sSyY]*)
+        if "$aimem_bin" init; then
+          ok "ai-memory inicializado"
+          h="$(perguntar 'Instalar os hooks de captura automática pro Claude Code? (s/n)' 'n')"
+          case "$h" in
+            [sSyY]*) "$aimem_bin" install-hooks --agent claude-code --apply ;;
+          esac
+          say "O servidor MCP local (busca via MCP) fica de fora de propósito:"
+          say "se sua política restringe conectores MCP, confirme antes de ligar."
+          say "Pra registrar depois:  episodic/ai-memory install-mcp --client claude-code --apply"
+        else
+          warn "'ai-memory init' terminou com erro — rode depois: episodic/ai-memory init"
+        fi
+        ;;
+      *) say "Pra ativar depois:  episodic/ai-memory init" ;;
+    esac
+  fi
 }
 
 concluir() {
@@ -75,6 +140,9 @@ concluir() {
     say "Este assistente não executa nenhum dos dois de propósito: os dois mexem"
     say "fora desta pasta, e o pacote promete não fazer isso."
   fi
+
+  ativar_pacotes_opcionais
+
   printf '\n'
   ok "repositório pronto em $repo"
 }
@@ -207,4 +275,5 @@ fi
 titulo "Ambiente preparado"
 say "As ferramentas estão no PATH desta janela. Quando quiser um repositório:"
 printf '\n     ./iniciar.sh        (e escolha 1, 2 ou 3)\n\n'
+ativar_pacotes_opcionais
 ok "nada foi instalado fora desta pasta."

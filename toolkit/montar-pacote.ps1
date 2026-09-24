@@ -11,15 +11,25 @@
         de compactar, recusando o pacote se encontrar qualquer uma (§18.3);
       - não instala nada fora da pasta do pacote.
 
+    Ollama e ai-memory são OPCIONAIS e opt-IN (ao contrário do Git, que é
+    opt-OUT com -SemGit): o Ollama sozinho, sem nenhum modelo, já passa de
+    1,7 GB por causa do runtime CUDA/ROCm — bem longe do "pacote enxuto" que
+    o resto deste script preserva por padrão. Só entram quando quem monta o
+    pacote pede -ComOllama / -ComAiMemory, exatamente pra quem já sabe que
+    vai entregar pra alguém que os quer (achado 34).
+
     Uso:
         .\montar-pacote.ps1 -RepoOrigem D:\chaos-pessoal -Tag v0.1.0
+        .\montar-pacote.ps1 -RepoOrigem D:\chaos-pessoal -Tag v0.1.0 -ComOllama -ComAiMemory
 #>
 param(
     [Parameter(Mandatory = $true)][string]$RepoOrigem,
     [Parameter(Mandatory = $true)][string]$Tag,
     [string]$Destino = ".\pacote",
     [switch]$SemGit,
-    [switch]$SemOllama
+    [switch]$ComOllama,
+    [switch]$OllamaComCuda,
+    [switch]$ComAiMemory
 )
 
 $ErrorActionPreference = "Stop"
@@ -128,11 +138,78 @@ if (-not $SemGit) {
     }
 } else { Aviso "PortableGit omitido por -SemGit." }
 
-# --- 5. Ollama (CLI, sem modelos) -----------------------------------------
-if (-not $SemOllama) {
-    Aviso "CLI do Ollama não é baixada automaticamente: o instalador oficial do"
-    Aviso "Windows não é portátil de fábrica. Copie ollama.exe para ollama\ à mão,"
-    Aviso "ou rode com -SemOllama e deixe modelos locais para a Fase 6."
+# --- 5. Ollama (opcional, opt-IN) ------------------------------------------
+# Diferente do Git: aqui o padrão é NÃO baixar. O zip do Windows sozinho, com
+# o runtime CUDA/ROCm completo, passa de 1,4 GB — sem nenhum modelo ainda.
+# Isso não é o "pacote enxuto" que o resto deste script entrega por padrão,
+# então só entra quando -ComOllama é pedido explicitamente (achado 34).
+$versaoOllama = ""
+if ($ComOllama) {
+    Passo "Baixando o Ollama (opcional, -ComOllama)"
+    try {
+        $ollamaZip = Join-Path $env:TEMP "ollama.zip"
+        Invoke-WebRequest -Uri "https://github.com/ollama/ollama/releases/latest/download/ollama-windows-amd64.zip" -OutFile $ollamaZip
+        $tmp = Join-Path $env:TEMP "ollama-extract-$([guid]::NewGuid())"
+        Expand-Archive $ollamaZip -DestinationPath $tmp -Force
+        if (-not $OllamaComCuda) {
+            # CUDA/ROCm sozinhos somam ~1,7 GB e só servem numa GPU NVIDIA/AMD
+            # específica. Sem -OllamaComCuda o Ollama sai rodando em CPU (e
+            # Vulkan, quando a GPU do destino suportar) — ~200 MB, não ~1,4 GB.
+            Aviso "removendo runtime CUDA/ROCm (~1,7 GB) — use -OllamaComCuda para mantê-lo"
+            $libOllama = Join-Path $tmp "lib\ollama"
+            if (Test-Path $libOllama) {
+                Get-ChildItem $libOllama -Directory -Filter "cuda_v*" -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
+                Get-ChildItem $libOllama -Directory -Filter "rocm*"  -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
+            }
+        }
+        Copy-Item (Join-Path $tmp "*") (Join-Path $pkg "ollama") -Recurse -Force
+        Remove-Item $tmp -Recurse -Force
+        if (-not (Test-Path (Join-Path $pkg "ollama\ollama.exe"))) {
+            throw "ollama.exe não apareceu em ollama\ após a extração"
+        }
+        try { $versaoOllama = (& (Join-Path $pkg "ollama\ollama.exe") --version | Select-Object -First 1) } catch { $versaoOllama = "instalado" }
+        Passo "Ollama pronto. Modelos continuam de fora (Fase 6) — GBs que o 'pull' busca"
+        Passo "no destino, e essa parte segue manual de propósito."
+    } catch {
+        Aviso "Ollama não incluído: $($_.Exception.Message)"
+        Aviso "rode de novo com -ComOllama, ou copie ollama.exe pra ollama\ à mão depois."
+    }
+} else {
+    Aviso "Ollama não incluído (opcional — rode com -ComOllama; ~200 MB sem CUDA,"
+    Aviso "~1,4 GB com -OllamaComCuda). Sem ele, tarefas 'local_only' de raciocínio"
+    Aviso "alto ficam bloqueadas até você instalar (Parte 4 do tutorial)."
+}
+
+# --- 5b. ai-memory (camada episódica, opcional, opt-IN) --------------------
+# Pequeno (~18 MB) — não é o tamanho que pede opt-in aqui, é o mesmo motivo
+# do tutorial (Parte 1.5): é uma adoção deliberada, registrada, feita depois
+# do spike de §3.5, nunca assumida (achado 34).
+$versaoAiMemory = ""
+if ($ComAiMemory) {
+    Passo "Baixando o ai-memory (opcional, -ComAiMemory — caminho nativo, experimental no Windows)"
+    try {
+        $url = "https://github.com/akitaonrails/ai-memory/releases/latest/download/ai-memory-windows-x86_64.zip"
+        $zip = Join-Path $env:TEMP "ai-memory.zip"
+        Invoke-WebRequest -Uri $url -OutFile $zip
+        $shaTxt = (Invoke-WebRequest -Uri "$url.sha256").Content
+        $shaEsperado = ($shaTxt -split '\s+')[0].ToLower()
+        $shaReal = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+        if ($shaEsperado -and $shaReal -ne $shaEsperado) {
+            throw "sha256 não confere (esperado $shaEsperado, obtido $shaReal) — download corrompido"
+        }
+        Expand-Archive $zip -DestinationPath (Join-Path $pkg "episodic") -Force
+        if (-not (Test-Path (Join-Path $pkg "episodic\ai-memory.exe"))) {
+            throw "ai-memory.exe não apareceu em episodic\ após a extração"
+        }
+        try { $versaoAiMemory = (& (Join-Path $pkg "episodic\ai-memory.exe") --version | Select-Object -First 1) } catch { $versaoAiMemory = "instalado" }
+        Passo "ai-memory baixado e verificado por sha256"
+    } catch {
+        Aviso "ai-memory não incluído: $($_.Exception.Message)"
+        Aviso "rode de novo com -ComAiMemory, ou copie o binário pra episodic\ à mão depois."
+    }
+} else {
+    Aviso "ai-memory não incluído (opcional — rode com -ComAiMemory). Camada episódica"
+    Aviso "de CHAOS §4.2 — o sistema funciona inteiro sem ela (AT-34)."
 }
 
 # --- 6. VERIFICAÇÃO DE SEGREDOS (§18.3) ------------------------------------
@@ -185,8 +262,8 @@ platform: "windows-x64"
 git: "$versaoGit"
 uv: "$versaoUv"
 python: "3.13"
-episodic: ""
-ollama: ""
+episodic: "$versaoAiMemory"
+ollama: "$versaoOllama"
 
 # Credenciais e chaves NUNCA entram (§18.3). A etapa 6 da montagem aborta se
 # encontrar qualquer uma; allowed_signers viaja VAZIO e a primeira linha nasce
@@ -209,3 +286,5 @@ Write-Host "`nPacote pronto: $zip ($mb MB)" -ForegroundColor Green
 Write-Host "Na máquina de destino: descompacte e dê duplo clique em INICIAR.cmd."
 Write-Host "O que continua sendo instalação lá: o Claude Code (uma linha) e o"
 Write-Host "registro do worker no logon (dois minutos no Agendador)."
+if ($ComOllama -and $versaoOllama) { Write-Host "Ollama incluído: $versaoOllama" -ForegroundColor Green }
+if ($ComAiMemory -and $versaoAiMemory) { Write-Host "ai-memory incluído: $versaoAiMemory" -ForegroundColor Green }

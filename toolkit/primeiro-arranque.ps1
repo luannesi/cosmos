@@ -16,6 +16,12 @@
     (Partes 1 a 6), que roda o Onboarding, registra as chaves, empurra pro
     remoto e registra o worker. Continua nunca guardando frase-secreta nem
     credencial: essas continuam indo direto pro prompt do terminal.
+
+    Ollama e ai-memory (achado 34): se quem montou o pacote incluiu os
+    binários (montar-pacote.ps1 -ComOllama / -ComAiMemory), este assistente
+    oferece ativá-los no final — sempre uma pergunta, nunca automático por
+    padrão, e nunca baixa modelo do Ollama sozinho (isso continua manual,
+    são gigabytes). Se -NaoInterativo, essas perguntas são puladas.
 #>
 [CmdletBinding()]
 param([switch] $NaoInterativo)
@@ -45,6 +51,65 @@ function DestinoValido ($caminho) {
         }
     }
     return $true
+}
+
+function AtivarPacotesOpcionais {
+    # Só existe algo a oferecer se quem montou o pacote incluiu os binários
+    # (montar-pacote.ps1 -ComOllama / -ComAiMemory) — por padrão eles não
+    # vêm, e este assistente nunca baixa nada sozinho: só ativa o que já
+    # está na pasta.
+    if ($NaoInterativo) { return }
+
+    $ollamaExe = Join-Path $Root 'ollama\ollama.exe'
+    $aiMemExe  = Join-Path $Root 'episodic\ai-memory.exe'
+    $temOllama = Test-Path $ollamaExe
+    $temAiMem  = Test-Path $aiMemExe
+    if (-not $temOllama -and -not $temAiMem) { return }
+
+    Titulo "Pacotes opcionais deste pacote"
+
+    if ($temOllama) {
+        $r = Perguntar "Ativar o Ollama agora? (só confere o binário — nenhum modelo é baixado) (s/n)" "n"
+        if ($r -match '^[sSyY]') {
+            & $ollamaExe --version
+            Ok "Ollama pronto em ollama\ollama.exe"
+            $rm = Perguntar "Baixar também um modelo pequeno agora? (alguns GB, precisa de rede) (s/n)" "n"
+            if ($rm -match '^[sSyY]') {
+                $modelo = Perguntar "Qual modelo (ollama.com/library)?" "llama3.2:3b"
+                & $ollamaExe pull $modelo
+            }
+        } else {
+            Say "Pra ativar depois:  ollama\ollama.exe --version"
+        }
+    }
+
+    if ($temAiMem) {
+        Write-Host ""
+        Say "ai-memory é a camada episódica (opcional — CHAOS §4.2); o sistema"
+        Say "funciona inteiro sem ela (AT-34). O caminho nativo é rotulado"
+        Say "experimental pelo próprio projeto no Windows — Docker é a via"
+        Say "recomendada (veja a Parte 1.5 do tutorial); isso aqui ativa só o"
+        Say "binário nativo que já está nesta pasta."
+        $r = Perguntar "Ativar o ai-memory agora (roda 'ai-memory init', caminho nativo)? (s/n)" "n"
+        if ($r -match '^[sSyY]') {
+            & $aiMemExe init
+            if ($LASTEXITCODE -eq 0) {
+                Ok "ai-memory inicializado"
+                $h = Perguntar "Instalar os hooks de captura automática pro Claude Code? (s/n)" "n"
+                if ($h -match '^[sSyY]') {
+                    & $aiMemExe install-hooks --agent claude-code --apply
+                }
+                Say "O servidor MCP local (busca via MCP) fica de fora de propósito:"
+                Say "se sua política restringe conectores MCP, confirme antes de ligar."
+                Say "Pra registrar depois:  episodic\ai-memory.exe install-mcp --client claude-code --apply"
+            } else {
+                Warn "'ai-memory init' terminou com erro (código $LASTEXITCODE) — rode depois:"
+                Warn "  episodic\ai-memory.exe init"
+            }
+        } else {
+            Say "Pra ativar depois:  episodic\ai-memory.exe init"
+        }
+    }
 }
 
 function Concluir ($repo, [switch] $Automatizado) {
@@ -88,6 +153,9 @@ function Concluir ($repo, [switch] $Automatizado) {
         Say "Este assistente não executa nenhum dos dois de propósito: os dois mexem"
         Say "fora desta pasta, e o pacote promete não fazer isso."
     }
+
+    AtivarPacotesOpcionais
+
     Write-Host ""
     Ok "repositório pronto em $repo"
 }
@@ -234,4 +302,5 @@ Say "As ferramentas estão no PATH desta janela. Quando quiser um repositório:"
 Write-Host ""
 Write-Host "     .\INICIAR.cmd        (e escolha 1, 2 ou 3)"
 Write-Host ""
+AtivarPacotesOpcionais
 Ok "nada foi instalado fora desta pasta."

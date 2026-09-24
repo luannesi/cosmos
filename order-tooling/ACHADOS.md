@@ -656,3 +656,33 @@ porque é só uma escrita na própria pasta de perfil. A diferença prática: o
 atalho só roda em logon interativo de verdade (não em qualquer logon, como
 o Agendador permitiria configurar), mas é suficiente pro uso pessoal que o
 worker precisa.
+
+---
+
+## 34. `ai-memory` não tinha nem download nem aviso no pacote — e automatizar o Ollama por padrão custaria 1,4 GB
+
+Achado ao revisar se o pacote portátil trazia mesmo "tudo": `episodic/` era
+criada vazia e o manifesto reservava campo pro hash de `ai-memory.exe`, mas
+nenhuma linha do `montar-pacote.ps1`/`.sh` baixava ou avisava sobre isso —
+diferente do Ollama, que ao menos imprimia um aviso. Quem recebesse o pacote
+via a pasta vazia, sem saber que faltava algo ali.
+
+Ao automatizar o download dos dois, descoberto que o zip portátil do Ollama
+para Windows (`ollama-windows-amd64.zip`) sozinho, sem nenhum modelo, passa
+de 1,4 GB — o runtime CUDA/ROCm completo (`lib\ollama\cuda_v12`,
+`cuda_v13`) responde por ~1,7 GB da extração completa. Automatizar isso por
+padrão, do jeito que o Git é automatizado (opt-out com `-SemGit`), quebraria
+a promessa de "pacote enxuto" do resto do script.
+
+Corrigido: os dois viram download automatizado, mas opt-IN (`-ComOllama` /
+`-ComAiMemory` no `.ps1`, `--com-ollama`/`--com-ai-memory` no `.sh`) — o
+oposto do padrão do Git. Por padrão, o Ollama baixado tem o runtime
+CUDA/ROCm removido da extração (`-OllamaComCuda`/`--ollama-com-cuda` mantém,
+pra quem já sabe que o destino tem GPU NVIDIA/AMD), o que reduz de ~1,4 GB
+pra ~200 MB. O `ai-memory` é verificado por sha256 contra o hash publicado
+pelo próprio projeto antes de entrar no pacote — se não bater, a etapa é
+pulada com aviso, não aborta a montagem inteira (é camada opcional). Nos
+dois casos, se o binário foi incluído, `primeiro-arranque.ps1`/`iniciar.sh`
+oferece ativá-lo no destino — sempre como pergunta, nunca automático, e o
+Ollama nunca baixa modelo sozinho (continua sendo decisão explícita, são
+gigabytes).
