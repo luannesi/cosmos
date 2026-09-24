@@ -208,15 +208,36 @@ passo "Verificando que nenhum segredo entrou no pacote"
 # por chave que existe numa máquina só; uma chave que viajasse aqui estaria em
 # toda máquina que baixou o ZIP — pior que não ter assinatura, porque teria a
 # aparência de garantia.
+# Uma chave privada de verdade tem o BEGIN *e* o END correspondente. Um
+# arquivo-fonte que so cita o cabecalho como string -- como o proprio
+# detector de chaves do repositorio, tools/chaos/assinatura.py, que precisa
+# listar esses textos pra reconhece-los em OUTRO lugar -- nunca tem o END ao
+# lado. Exigir o par e o que distingue "fala sobre chave privada" de "e uma
+# chave privada" (achado 37: o primeiro run real acusou assinatura.py e todo
+# .pem publico do pacote -- cacert.pem, ca-bundle.pem -- que nao tinham nada
+# a esconder).
+contem_chave_privada() {
+  grep -qE "BEGIN (OPENSSH |RSA |EC |PGP )?PRIVATE KEY" "$1" 2>/dev/null \
+    && grep -qE "END (OPENSSH |RSA |EC |PGP )?PRIVATE KEY" "$1" 2>/dev/null
+}
 SUSPEITOS=""
 while IFS= read -r f; do
-  if head -c 200 "$f" 2>/dev/null | grep -qE "BEGIN (OPENSSH|RSA|EC|PGP)? ?PRIVATE KEY"; then
+  if contem_chave_privada "$f"; then
     SUSPEITOS="$SUSPEITOS\n   $f"
   fi
 done < <(find "$PKG" -type f -size -64k)
+# *.pem/*.key tambem sao a extensao de certificados e cadeias PUBLICAS
+# (cacert.pem do certifi, ca-bundle.pem do Git -- o pacote nao faz HTTPS sem
+# eles), entao so reprovam pelo CONTEUDO, nunca pela extensao sozinha.
+while IFS= read -r f; do
+  if contem_chave_privada "$f"; then
+    SUSPEITOS="$SUSPEITOS\n   $f"
+  fi
+done < <(find "$PKG" -type f \( -name '*.pem' -o -name '*.key' \))
+# id_rsa/id_ed25519/.env* nao tem equivalente publico plausivel -- continuam
+# reprovando so pelo nome.
 while IFS= read -r f; do SUSPEITOS="$SUSPEITOS\n   $f"; done < <(
-  find "$PKG" -type f \( -name '*.pem' -o -name '*.key' -o -name 'id_ed25519' \
-       -o -name 'id_rsa' -o -name '.env*' \))
+  find "$PKG" -type f \( -name 'id_ed25519' -o -name 'id_rsa' -o -name '.env*' \))
 AS="$PKG/tools-seed/metadata/registries/allowed_signers"
 if [ -f "$AS" ] && grep -qEv '^[[:space:]]*(#|$)' "$AS"; then
   SUSPEITOS="$SUSPEITOS\n   $AS (contém chave registrada — deve ir VAZIO)"

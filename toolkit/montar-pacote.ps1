@@ -248,18 +248,44 @@ Passo "Verificando que nenhum segredo entrou no pacote"
 # porque teria a aparência de garantia.
 $cabecalhos = @("BEGIN OPENSSH PRIVATE KEY","BEGIN RSA PRIVATE KEY",
                 "BEGIN EC PRIVATE KEY","BEGIN PRIVATE KEY","BEGIN PGP PRIVATE KEY")
+# Uma chave privada de verdade sempre tem o BEGIN *e* o END correspondente.
+# Um arquivo-fonte que só cita o cabeçalho como string — como o próprio
+# detector de chaves do repositório, tools/chaos/assinatura.py, que precisa
+# listar esses textos para reconhecê-los em OUTRO lugar — nunca tem o END ao
+# lado. Exigir o par é o que distingue "fala sobre chave privada" de "é uma
+# chave privada" (achado 37: o primeiro run real acusou assinatura.py e todo
+# .pem público do pacote — cacert.pem, ca-bundle.pem — que não tinham nada a
+# esconder).
+function ContemChavePrivada($caminho) {
+    $t = Get-Content $caminho -Raw -ErrorAction SilentlyContinue
+    if (-not $t) { return $false }
+    foreach ($c in $cabecalhos) {
+        $fim = $c -replace "^BEGIN ", "END "
+        if ($t.Contains("-----$c-----") -and $t.Contains("-----$fim-----")) { return $true }
+    }
+    return $false
+}
 $suspeitos = @()
 Get-ChildItem $pkg -Recurse -File | Where-Object { $_.Length -lt 64KB } | ForEach-Object {
-    $t = Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue
-    if ($t) { foreach ($c in $cabecalhos) { if ($t.Contains($c)) { $suspeitos += $_.FullName; break } } }
+    if (ContemChavePrivada $_.FullName) { $suspeitos += $_.FullName }
 }
-Get-ChildItem $pkg -Recurse -File -Include "*.pem","*.key","id_ed25519","id_rsa",".env*","allowed_signers" |
-    ForEach-Object {
-        if ($_.Name -eq "allowed_signers") {
-            $linhas = (Get-Content $_.FullName | Where-Object { $_.Trim() -and -not $_.StartsWith("#") })
-            if ($linhas) { $suspeitos += "$($_.FullName) (contém chave registrada — deve ir VAZIO)" }
-        } else { $suspeitos += $_.FullName }
-    }
+# *.pem/*.key também são a extensão de certificados e cadeias PÚBLICAS
+# (cacert.pem do certifi, ca-bundle.pem do Git — o pacote não faz HTTPS sem
+# eles) — por isso não reprovam pela extensão sozinha, só quando o CONTEÚDO é
+# mesmo uma chave privada. Sem limite de tamanho aqui: já sabemos pela
+# extensão que vale a pena olhar, e nenhum .pem/.key de verdade é gigante.
+Get-ChildItem $pkg -Recurse -File -Include "*.pem","*.key" | ForEach-Object {
+    if (ContemChavePrivada $_.FullName) { $suspeitos += $_.FullName }
+}
+# id_rsa/id_ed25519/.env* não têm equivalente público plausível — continuam
+# reprovando só pelo nome.
+Get-ChildItem $pkg -Recurse -File -Include "id_ed25519","id_rsa",".env*" | ForEach-Object {
+    $suspeitos += $_.FullName
+}
+Get-ChildItem $pkg -Recurse -File -Include "allowed_signers" | ForEach-Object {
+    $linhas = (Get-Content $_.FullName | Where-Object { $_.Trim() -and -not $_.StartsWith("#") })
+    if ($linhas) { $suspeitos += "$($_.FullName) (contém chave registrada — deve ir VAZIO)" }
+}
 if ($suspeitos) {
     Write-Host "`nArquivos que não podem entrar no pacote:" -ForegroundColor Red
     $suspeitos | ForEach-Object { Write-Host "   $_" -ForegroundColor Red }

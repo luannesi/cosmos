@@ -774,3 +774,45 @@ Corrigido em `montar-pacote.ps1`:
 Lição: `Join-Path` no PowerShell é concatenação de string, não canonicalização de
 caminho — qualquer comparação de string feita depois (regex, `-eq`, `-match`) contra
 um valor vindo dele carrega qualquer "." ou ".." que o chamador tiver colocado.
+
+## Achado 37 — verificação de segredos (§18.3) reprovava arquivos públicos: `assinatura.py` e todo `.pem` legítimo
+
+Segunda tentativa real de `montar-pacote.ps1` (depois do achado 36) passou de tudo —
+Python, venv relocável, dependências, PortableGit — e abortou na última etapa antes
+de escrever o TOOLKIT.yaml, com uma lista de "credenciais":
+
+  - `tools-seed\tools\chaos\assinatura.py`
+  - `git\...\ca-trust\...\*.pem`, `git\...\cert.pem` (do PortableGit)
+  - `python\...\site-packages\pip\_vendor\certifi\cacert.pem` (dois lugares:
+    o Python "solto" e o venv)
+
+Nenhum dos dois é segredo:
+
+  - `assinatura.py` é o módulo que IMPLEMENTA a detecção de chave privada em
+    outro lugar do repositório (CHAOS §17.6) — por isso ele mesmo contém a lista
+    de cabeçalhos `-----BEGIN ... PRIVATE KEY-----` como constantes de string,
+    para reconhecê-los alhures. A checagem por conteúdo fazia `$t.Contains($c)`
+    sem se importar com CONTEXTO — bastava a substring aparecer, mesmo dentro
+    de uma lista Python, para acender o alarme.
+  - `cacert.pem`/`ca-bundle.pem` são pacotes de certificado-raiz PÚBLICOS que
+    git, pip e python usam para verificação TLS — sem eles o pacote não
+    consegue fazer HTTPS (nem `git clone`, nem `pip install`). A checagem por
+    NOME (`-Include "*.pem","*.key",...`) reprovava qualquer arquivo com essa
+    extensão, sem olhar o conteúdo — um certificado público tem exatamente a
+    mesma extensão que uma chave privada.
+
+Corrigido nos dois scripts:
+  - a checagem por conteúdo agora exige o BEGIN **e** o END correspondente do
+    mesmo tipo de chave — um arquivo-fonte que só cita o cabeçalho como string,
+    sem nunca fechar o bloco, não dispara mais;
+  - `*.pem`/`*.key` saem da lista de reprovação automática por nome e passam a
+    ser inspecionados pelo mesmo teste de conteúdo (BEGIN+END) — só reprovam se
+    o arquivo for mesmo uma chave privada;
+  - `id_rsa`/`id_ed25519`/`.env*` continuam reprovando só pelo nome — não têm
+    equivalente público plausível, ao contrário de `.pem`/`.key`.
+
+Lição: uma checagem de segredo que reconhece só a FORMA (extensão, substring
+solta) e não a diferença entre "é uma chave" e "fala sobre chave" cedo ou tarde
+reprova algo inofensivo — e o risco real de um alarme falso deste tamanho é o
+operador aprender a ignorá-lo ou a rodar com `-SkipVerificacao` da próxima vez,
+que é exatamente o cenário que o §18.3 existe para evitar.
