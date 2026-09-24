@@ -608,3 +608,22 @@ não são afetados — Python 3 sempre lê UTF-8 por padrão, e o bash em
 Linux/macOS usa a codificação do locale, tipicamente UTF-8 já sem exigir BOM.
 Vale conferir todo `.ps1` novo do projeto por este mesmo defeito antes de
 distribuir.
+
+---
+
+## 32. `New-ScheduledTaskAction -Argument ""` rejeita string vazia
+
+Achado no primeiro uso real de `register-worker.ps1`, logo depois do achado 31
+(BOM): passado o parser, o script imprimia o cabeçalho e caía em
+`ParameterBindingValidationException` em `-Argument`.
+
+Causa: quando `bin\order-worker.cmd` existe (caso comum — é o invólucro que
+resolve tudo sozinho, achado 26), o script monta `$exeArgs = @()` e depois
+chama `New-ScheduledTaskAction -Execute $exe -Argument ($exeArgs -join " ")`.
+Um array vazio unido com espaço vira `""`, e o parâmetro `-Argument` do
+cmdlet recusa string vazia (só aceita `$null` por omissão, não uma string
+vazia explícita).
+
+Corrigido: `-Argument` só é passado quando `$exeArgs` tem pelo menos um
+elemento; quando o `.cmd` já basta sozinho, o parâmetro é omitido da chamada
+em vez de receber `""`.

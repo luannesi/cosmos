@@ -66,7 +66,14 @@ if (Test-Path $wrapperCmd) {
 }
 
 # --- montar a ação, o gatilho e as configurações da tarefa ---
-$action = New-ScheduledTaskAction -Execute $exe -Argument ($exeArgs -join " ") -WorkingDirectory $RepoDir
+# -Argument não aceita string vazia (nem $null): quando o wrapper .cmd já
+# resolve tudo sozinho (sem argumento nenhum pro Execute), o parâmetro tem
+# que ser omitido, não passado como "".
+if ($exeArgs.Count -gt 0) {
+    $action = New-ScheduledTaskAction -Execute $exe -Argument ($exeArgs -join " ") -WorkingDirectory $RepoDir
+} else {
+    $action = New-ScheduledTaskAction -Execute $exe -WorkingDirectory $RepoDir
+}
 $trigger = New-ScheduledTaskTrigger -AtLogOn
 $settings = New-ScheduledTaskSettingsSet `
     -AllowStartIfOnBatteries `
