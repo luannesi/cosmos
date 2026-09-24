@@ -735,3 +735,42 @@ quanto a vazar dado pessoal: mesmo antes deste achado, a etapa 2 só copia
 ou qualquer pasta de conteúdo. Uma busca por nomes pessoais no código-fonte
 de `order-tooling\` (não nos `.pyc`, que carregam o caminho absoluto de
 compilação e já são apagados antes de compactar) não achou nada.
+
+## Achado 36 — `montar-pacote.ps1` abortava um venv correto por causa de um ".\" que sobrevive ao `Join-Path`
+
+Primeira tentativa real de rodar `montar-pacote.ps1 -RepoOrigem D:\cosmos\order-tooling
+-Tag v0.1.0` (depois do achado 35) chegou até "Criando o venv RELOCÁVEL" e abortou com
+"o venv aponta para um Python FORA do pacote — não sobreviveria à cópia."
+
+O venv estava certo. `pacote\venv\pyvenv.cfg` tinha:
+
+    home = D:\cosmos\toolkit\pacote\python\cpython-3.13-windows-x86_64-none
+
+— dentro de `pacote\python\`, exatamente onde devia. A checagem (`$cfg -notmatch
+[regex]::Escape((Join-Path $pkg "python"))`) comparava contra o `$pkg` errado.
+
+Causa: `$Destino` tinha padrão `".\pacote"`. `Join-Path $raiz $Destino` NÃO normaliza
+segmentos "."; o PowerShell mantém o ".\" literal dentro da string de `$pkg` dali em
+diante. O Windows tolera isso ao criar/achar arquivos (por isso `pacote\` e tudo dentro
+dela ficou certinho no disco), mas:
+  - o `uv`, ao gravar `home =` no `pyvenv.cfg`, canonicaliza o caminho que recebeu via
+    `$env:UV_PYTHON_INSTALL_DIR` — sem o ".\";
+  - a checagem em PowerShell comparava contra `$pkg` ainda "sujo", com o ".\" — uma
+    substring que nunca vai aparecer no `pyvenv.cfg` canonicalizado.
+Resultado: falso positivo, todo run com o `-Destino` padrão abortava aqui.
+
+`montar-pacote.sh` nunca teve esse problema — `RAIZ="$(cd ... && pwd)"` já é
+canônico e `DEST="pacote"` (sem ".\"), então `PKG="$RAIZ/$DEST"` nunca carrega
+segmento solto.
+
+Corrigido em `montar-pacote.ps1`:
+  - `$Destino` passa a ter padrão `"pacote"` (sem o ".\" supérfluo);
+  - logo depois de `New-Item -ItemType Directory -Path $pkg`, `$pkg` é resolvido para
+    o caminho canônico via `(Resolve-Path $pkg).Path` — daí em diante todo uso de
+    `$pkg` (env vars do uv, checagem do venv, cópia de scripts) usa a mesma forma
+    normalizada, então isso se aplica mesmo que alguém passe `-Destino` com "." ou
+    caminho relativo daqui pra frente.
+
+Lição: `Join-Path` no PowerShell é concatenação de string, não canonicalização de
+caminho — qualquer comparação de string feita depois (regex, `-eq`, `-match`) contra
+um valor vindo dele carrega qualquer "." ou ".." que o chamador tiver colocado.

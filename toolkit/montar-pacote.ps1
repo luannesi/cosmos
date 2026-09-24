@@ -33,7 +33,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$RepoOrigem,
     [Parameter(Mandatory = $true)][string]$Tag,
-    [string]$Destino = ".\pacote",
+    [string]$Destino = "pacote",
     [switch]$SemGit,
     [switch]$ComOllama,
     [switch]$OllamaComCuda,
@@ -74,6 +74,14 @@ if (Test-Path $tagYaml) {
 $pkg = Join-Path $raiz $Destino
 if (Test-Path $pkg) { Fatal "`$Destino já existe: $pkg. Apague ou escolha outro." }
 New-Item -ItemType Directory -Path $pkg | Out-Null
+# Join-Path não normaliza segmentos "." — se $Destino vier com ".\" (era o
+# padrão), $pkg carrega esse ".\" literal daqui em diante. Isso não incomoda
+# o Windows na hora de criar/achar arquivos, mas o `uv` grava no pyvenv.cfg o
+# caminho já canonicalizado (sem o "."), e a checagem de string mais abaixo
+# comparava contra o $pkg "sujo" — abortando um venv que na verdade estava
+# certo, dentro do pacote (achado 36). Resolvendo uma vez aqui, com a pasta
+# já criada, elimina a divergência para o resto do script.
+$pkg = (Resolve-Path $pkg).Path
 
 # --- 1. esqueleto e scripts ------------------------------------------------
 Passo "Copiando scripts e esqueleto"
