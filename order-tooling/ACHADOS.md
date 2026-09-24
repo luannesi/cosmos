@@ -977,3 +977,27 @@ Lição: um script com dois consumidores (quem monta o pacote, rodando direto nu
 completo; e o pacote rodando em si mesmo, via `primeiro-arranque.ps1`) não pode assumir
 que os dois têm o mesmo layout de pastas — cada integração nova com este motor precisa
 ser testada nos dois contextos, não só herdar a suposição de onde ele nasceu.
+
+## Achado 42 — a pergunta "remote" do onboarding não sugeria a URL já dada na Parte 2 (repositório remoto)
+
+Sétima tentativa, já dentro do Onboarding interativo (Parte 4.3): a pergunta "Remoto
+deste repositório (vazio = local-only)" (`metadata/repo.yaml.remote`) mostrou default
+vazio, mesmo o usuário já tendo digitado a URL do GitHub duas perguntas antes, na Parte 2
+(`passo_repo_remoto`, gravada em `remote_url`). Conceitualmente são a mesma informação
+pra um repositório com uma classe só — mas nada ligava as duas, e a pergunta não deixava
+isso claro: parecia uma pergunta nova, sem relação com o que já tinha sido respondido.
+
+`passo_onboarding()` já reaproveita resposta anterior DA MESMA pergunta entre tentativas
+(`estado.resposta(f"onboarding.{chave}")`, pro caso de reiniciar o instalador) — só não
+olhava pra `remote_url`, que é uma chave de estado diferente, escrita numa Parte
+diferente.
+
+Corrigido: quando a pergunta é `remote` e ainda não tem resposta anterior DELA MESMA, a
+sugestão mostrada cai pra `remote_url` (a URL já dada na Parte 2). Continua sendo só uma
+sugestão — o usuário ainda confirma explicitamente (Enter aceita, digitar troca), como
+manda a regra 1 do onboarding ("nada tem default silencioso"); só deixa de parecer uma
+pergunta nova quando na verdade é a mesma informação.
+
+Lição: perguntas que soam redundantes entre si quase sempre SÃO — vale sempre checar se
+uma resposta já dada em outra Parte do fluxo deveria alimentar o default mostrado antes
+de pedir de novo.

@@ -451,6 +451,13 @@ def passo_onboarding(estado: Estado, repo_dir: Path, bin_chaos: Path) -> None:
             print(f"\n  — {bloco_atual} —")
 
         sugestao = estado.resposta(f"onboarding.{chave}", None)
+        if chave == "remote" and sugestao is None:
+            # A pergunta "remote" do onboarding (metadata/repo.yaml.remote) é
+            # conceitualmente o mesmo remoto que passo_repo_remoto() já
+            # coletou na Parte 2 (remote_url) -- sem isto, quem responde ali
+            # tem que digitar a MESMA URL de novo aqui, sem nenhum aviso de
+            # que são a mesma coisa (achado 42).
+            sugestao = estado.resposta("remote_url", None)
         default_mostrado = sugestao if sugestao is not None else q.get("default")
         origem = " (sua resposta anterior)" if sugestao is not None else ""
 
