@@ -1,4 +1,4 @@
-<#
+﻿<#
     primeiro-arranque.ps1 — assistente do pacote portátil (Implementação §18.5)
 
     Chamado por INICIAR.cmd. Prepara o ambiente (bootstrap.ps1) e pergunta o que

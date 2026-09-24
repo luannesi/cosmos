@@ -1,4 +1,4 @@
-<#
+﻿<#
     bootstrap.ps1 — pacote portátil do CHAOS/ORDER (Implementação §18)
 
     Monta PATH e variáveis de ambiente PARA ESTA SESSÃO e verifica a integridade

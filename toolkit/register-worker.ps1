@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Registra o worker do CHAOS/ORDER para iniciar automaticamente no logon
     (Windows), via Agendador de Tarefas.

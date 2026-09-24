@@ -577,3 +577,34 @@ Também corrigido `montar-pacote.ps1`/`montar-pacote.sh`, que não incluíam
 arquivos copiados pro pacote final — sem isso, a nova opção [3]
 ("automatizar tudo") ficaria faltando em todo pacote montado a partir de
 agora.
+
+---
+
+## 31. Script `.ps1` com acento sem BOM vira ilegível (e quebra o parser) no Windows PowerShell
+
+Achado ao testar `register-worker.ps1` de verdade pela primeira vez: o Windows
+PowerShell (5.1, o `powershell.exe` padrão — não o `pwsh` do PowerShell 7)
+recusou o script inteiro com `Token inesperado`/`cadeia de caracteres não tem
+o terminador`, numa cascata de erros de parser em linhas que não tinham nada
+de errado.
+
+Causa: sem um BOM UTF-8 no início do arquivo, o Windows PowerShell 5.1 lê o
+`.ps1` na codepage padrão do sistema, não em UTF-8. Qualquer caractere
+não-ASCII — acento (`ã`, `ç`, `ó`), travessão (`—`), aspas tipográficas —
+vira uma sequência de bytes lida como caracteres soltos errados. Não é só
+cosmético: quando o byte errado cai perto de uma aspa de string, o parser
+perde o fechamento da string, e o erro reportado aponta pra linhas distantes
+do problema real (a cascata típica de erro de parser, não de lógica).
+
+`bootstrap.ps1`, `montar-pacote.ps1`, `primeiro-arranque.ps1` e o novo
+`register-worker.ps1` nunca tiveram BOM — os dois primeiros desde sempre; os
+dois últimos porque as ferramentas usadas para escrevê-los/editá-los
+(`Write`/`Edit` de arquivo e `python3` lendo com `encoding="utf-8"`) escrevem
+UTF-8 sem BOM por padrão, e não preservam um BOM que porventura existisse.
+
+Corrigido nos quatro: BOM UTF-8 adicionado no início de cada `.ps1` do
+`toolkit/`. `bin/chaos.cmd`/`bin/order.cmd` e os `.py`/`.sh` do repositório
+não são afetados — Python 3 sempre lê UTF-8 por padrão, e o bash em
+Linux/macOS usa a codificação do locale, tipicamente UTF-8 já sem exigir BOM.
+Vale conferir todo `.ps1` novo do projeto por este mesmo defeito antes de
+distribuir.

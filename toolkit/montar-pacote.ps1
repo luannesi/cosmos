@@ -1,4 +1,4 @@
-<#
+﻿<#
     montar-pacote.ps1 — monta o pacote portátil (Implementação §18).
 
     Roda UMA vez, na máquina que já funciona, e produz o ZIP que as outras
