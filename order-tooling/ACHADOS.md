@@ -865,3 +865,49 @@ Lição: qualquer script que itere `Get-ChildItem -Recurse` sobre uma árvore de
 (PortableGit, um venv Python, node_modules, o que for) e repasse o nome do arquivo
 adiante para outro cmdlet do provedor FileSystem tem que usar `-LiteralPath` — nunca
 `-Path` posicional. O conteúdo dessas árvores não é controlado por quem escreve o script.
+
+## Achado 39 — o venv `--relocatable` sobrevive à mudança de pasta, mas o launcher compilado do `python.exe` no Windows não
+
+Quarta tentativa: passou de tudo (achados 35–38 resolvidos) até a linha que imprime as
+versões — `git`, `uv` — e travou bem em `python`:
+
+    [erro] o ambiente não pôde ser preparado: error: uv trampoline failed to spawn
+    Python child process
+
+O pacote foi montado em `D:\cosmos\toolkit\pacote\` e extraído em `D:\COSMOS\myCosmos\`
+— caminho absoluto diferente, exatamente o cenário que `--relocatable` deveria cobrir
+(achado 36 confirmou que `pyvenv.cfg` guarda um caminho consistente com o pacote). Só que
+`--relocatable`, no uv, cobre os SCRIPTS de ativação (`activate`, `activate.ps1`) — não o
+`venv\Scripts\python.exe` em si. No Windows esse arquivo não é uma cópia do interpretador
+nem um link: é um "trampoline", um executável pequeno que o uv gera e que embute o
+caminho absoluto de onde foi criado para saber que processo real disparar. Mover a pasta
+inteira deixa esse launcher específico apontando para um caminho que não existe mais
+naquela máquina — o resto do venv (`Lib\site-packages`, `pyvenv.cfg`) está certinho, só
+o `.exe` de entrada que está preso.
+
+Isso não é bug do uv por si só — é uma limitação conhecida e documentada como pedido de
+funcionalidade em aberto no próprio projeto (ver "Support portable mode: ... relocatable
+venv Python binaries", issue #15751 do astral-sh/uv — na prática confirma que hoje só o
+texto do `pyvenv.cfg`/scripts de ativação viram relativos, não o binário compilado).
+
+A montagem (`montar-pacote.ps1`) já guardava `wheels\` justamente "para reinstalação
+offline" — comentário que nunca virou código. Esse era o gancho certo: o Python
+gerenciado em `python\` (python-build-standalone) É de verdade portátil — não usa
+trampoline, é um binário comum — só o `venv\Scripts\python.exe` que aponta pra ele que
+quebra. A correção usa exatamente essa saída: `bootstrap.ps1` agora testa se
+`venv\Scripts\python.exe` responde; se não responder, refaz o venv NO LUGAR ATUAL
+(`uv venv --relocatable --seed --managed-python --python 3.13`, usando o Python já
+presente em `python\`, sem baixar nada) e reinstala as dependências com `uv pip install
+--no-index --find-links wheels\` — 100% offline, o cache de rodas guardado na montagem
+finalmente sendo usado pra algo.
+
+De quebra, as três linhas que imprimiam versões (`git --version`, `uv --version`,
+`python --version`) mesclavam stderr no stdout via `2>&1` com `$ErrorActionPreference =
+'Stop'` — qualquer aviso benigno de qualquer uma dessas ferramentas no stderr vira erro
+fatal do script inteiro (foi assim que o trampoline quebrado virou uma exceção
+terminal em vez de só um exit code). Trocado para `2>$null`: descarta o stderr da
+exibição, não promove a erro de script.
+
+Lição: "relocatable" tem que ser verificado ponta a ponta, não só no arquivo de
+configuração — o binário que efetivamente é invocado pode ter uma noção diferente
+(e não documentada no primeiro lugar óbvio) do que "relocatable" significa.

@@ -129,11 +129,51 @@ if (-not $SkipHashes) {
     }
 }
 
+# ---------------------------------------------------------------- venv
+# --relocatable move os scripts de ativação sem erro, mas o launcher
+# compilado que o uv gera para venv\Scripts\python.exe no Windows ainda
+# embute o caminho absoluto de onde foi criado — mudar o pacote de pasta
+# quebra só esse launcher ("uv trampoline failed to spawn Python child
+# process"), mesmo com o Python de dentro do pacote (python\) intacto
+# (achado 39). A montagem guarda wheels\ pra isso: se o venv não responder
+# daqui, ele é refeito no lugar, offline, sem precisar de rede.
+$pyVenv = Join-Path $Root 'venv\Scripts\python.exe'
+$antigaPref = $ErrorActionPreference
+$ErrorActionPreference = 'SilentlyContinue'
+$venvOk = $false
+if (Test-Path $pyVenv) {
+    & $pyVenv --version 1>$null 2>$null
+    $venvOk = ($LASTEXITCODE -eq 0)
+}
+$ErrorActionPreference = $antigaPref
+
+if (-not $venvOk) {
+    $uvExe  = Join-Path $Root 'uv\uv.exe'
+    $wheels = Join-Path $Root 'wheels'
+    $reqs   = Join-Path $Root 'requirements.txt'
+    if ((Test-Path $uvExe) -and (Test-Path $wheels) -and (Test-Path $reqs)) {
+        Warn "venv preso no caminho de montagem — refazendo aqui, offline (sem rede)"
+        Remove-Item (Join-Path $Root 'venv') -Recurse -Force -ErrorAction SilentlyContinue
+        $ErrorActionPreference = 'SilentlyContinue'
+        & $uvExe venv --relocatable --seed --managed-python --python 3.13 (Join-Path $Root 'venv') 1>$null 2>$null
+        & $uvExe pip install --python $pyVenv --no-index --find-links $wheels -r $reqs 1>$null 2>$null
+        if (Test-Path $pyVenv) {
+            & $pyVenv --version 1>$null 2>$null
+            $venvOk = ($LASTEXITCODE -eq 0)
+        }
+        $ErrorActionPreference = $antigaPref
+        if ($venvOk) { Ok "venv refeito neste caminho" }
+        else { Die "não consegui refazer o venv offline — rode manualmente: $uvExe venv --relocatable --seed --managed-python --python 3.13 `"$(Join-Path $Root 'venv')`"" }
+    } else {
+        Die "python do pacote não responde e faltam wheels\/uv\ para refazer o venv offline — baixe o pacote de novo"
+    }
+}
+
 # ---------------------------------------------------------------- versões
 Write-Host ""
-Say "git      $((& git --version) 2>&1)"
-Say "uv       $((& uv --version) 2>&1)"
-Say "python   $((& python --version) 2>&1)"
+Say "git      $((& git --version) 2>$null)"
+Say "uv       $((& uv --version) 2>$null)"
+Say "python   $((& python --version) 2>$null)"
 Write-Host ""
 
 if ($Verify) { Ok "verificação concluída"; exit 0 }
