@@ -948,3 +948,32 @@ Lição: `check=False` em `subprocess.run`/wrappers em cima dele só cobre o cas
 retornou código != 0" — testar a EXISTÊNCIA de uma ferramenta externa opcional (que é
 exatamente o que esse código já tentava fazer) exige tratar `FileNotFoundError` à parte,
 ou usar `shutil.which()` antes de tentar rodar.
+
+## Achado 41 — `bootstrap_cosmos.py` só sabia achar a árvore-semente em `order-tooling/`, e o pacote portátil guarda ela em `tools-seed/`
+
+Sexta tentativa: Parte 2 (repositório remoto, já com o achado 40 corrigido) passou —
+pediu a URL manualmente, sem `gh`. Parte 4.2 quebrou:
+
+    PAROU: não achei D:\COSMOS\app\order-tooling\bin\chaos — confirme --cosmos-dir
+
+`primeiro-arranque.ps1` chama `bootstrap_cosmos.py --repo-dir <destino> --cosmos-dir
+$Root` — ou seja, `--cosmos-dir` é a RAIZ DO PACOTE. Mas `passo_chaos_init()` sempre
+procurava a árvore-semente em `{cosmos_dir}/order-tooling/bin/chaos` — um caminho que só
+existe quando `--cosmos-dir` é um checkout completo do repositório `cosmos` (o uso
+original deste script, documentado no cabeçalho como
+`--cosmos-dir D:\cosmos`, de quando ele só rodava na máquina de quem monta o pacote).
+
+No pacote portátil a árvore-semente foi copiada para `tools-seed/` na raiz do pacote
+(achado 35) — `primeiro-arranque.ps1` já sabe disso (linha 234, verifica
+`tools-seed\bin\chaos` antes de chamar o motor), mas o `bootstrap_cosmos.py` que ele
+invoca não sabia.
+
+Corrigido: `passo_chaos_init()` agora tenta três caminhos, na ordem — `{cosmos_dir}/bin/
+chaos` (cosmos_dir já É a árvore-semente), `{cosmos_dir}/order-tooling/bin/chaos`
+(checkout completo do repositório) e `{cosmos_dir}/tools-seed/bin/chaos` (raiz do pacote
+portátil) — e só desiste se nenhum existir, listando os três na mensagem de erro.
+
+Lição: um script com dois consumidores (quem monta o pacote, rodando direto num checkout
+completo; e o pacote rodando em si mesmo, via `primeiro-arranque.ps1`) não pode assumir
+que os dois têm o mesmo layout de pastas — cada integração nova com este motor precisa
+ser testada nos dois contextos, não só herdar a suposição de onde ele nasceu.

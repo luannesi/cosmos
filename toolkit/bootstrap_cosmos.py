@@ -367,9 +367,24 @@ def passo_chaos_init(estado: Estado, repo_dir: Path, cosmos_dir: Path) -> Path:
         estado.marcar("chaos_init")
         return bin_chaos_vendorizado
 
-    bin_chaos_cosmos = cosmos_dir / "order-tooling" / "bin" / "chaos"
-    if not bin_chaos_cosmos.exists():
-        raise ErroPasso(f"não achei {bin_chaos_cosmos} — confirme --cosmos-dir")
+    # --cosmos-dir pode apontar pra três coisas diferentes, dependendo de quem
+    # chama: a própria árvore-semente (bin/, hooks/, tools/ na raiz — quem
+    # roda este script direto com --cosmos-dir D:\cosmos\order-tooling), o
+    # checkout completo do repositório cosmos (onde a árvore-semente mora em
+    # order-tooling/ — o uso original deste script, --cosmos-dir D:\cosmos) ou
+    # a raiz do pacote portátil (onde ela mora em tools-seed/ — achado 35) —
+    # é isso que primeiro-arranque.ps1 passa. As três são achado 41: nenhuma
+    # é mais "certa" que a outra, então tenta as três antes de desistir.
+    candidatos = [
+        cosmos_dir / "bin" / "chaos",
+        cosmos_dir / "order-tooling" / "bin" / "chaos",
+        cosmos_dir / "tools-seed" / "bin" / "chaos",
+    ]
+    bin_chaos_cosmos = next((c for c in candidatos if c.exists()), None)
+    if bin_chaos_cosmos is None:
+        tentados = "\n    ".join(str(c) for c in candidatos)
+        raise ErroPasso(f"não achei bin/chaos em nenhum destes caminhos — confirme "
+                         f"--cosmos-dir:\n    {tentados}")
 
     classe = perguntar("  Classe de privacidade (privacy_class)",
                         default=estado.resposta("privacy_class", "pessoal"))
